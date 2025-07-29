@@ -1,0 +1,75 @@
+name: Build archlinux kernel
+
+on:
+  workflow_call:
+    inputs:
+      _cpusched:
+        required: true
+        type: string
+      compiler:
+        required: true
+        type: string
+
+env:
+  _distro: "Arch"
+  _IS_GHCI: "true"
+
+jobs:
+  build-kernel:
+    env:
+      _cpusched: ${{ inputs._cpusched }}
+      compiler: ${{ inputs.compiler }}
+
+    runs-on: ubuntu-latest
+    container: ghcr.io/etjakeoc/tkt-arch-dev:latest
+
+    steps:
+      - name: Checkout TKT
+        uses: actions/checkout@v4
+
+      - name: Prepare for makepkg
+        run: |
+          useradd user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          chown user -R {../,./}
+
+      - name: Adjust compiler and compile Kernel
+        env:
+          _cpusched: ${{ inputs._cpusched }}
+          compiler: ${{ inputs.compiler }}
+        run: |
+          git config --global --add safe.directory "$(pwd)"
+          sed -i 's/^_compiler=".*"/_compiler="${{ inputs.compiler }}"/' customization.cfg
+          su --preserve-environment user -c "yes '' | makepkg --noconfirm -s"
+
+      - name: Package PKG files to $arch-linux format
+        run: |
+          arch=$(uname -m)
+          for file in *linux*.pkg.tar.zst; do
+            base=$(basename "$file")
+            mv "$file" "Arch-linux-${arch}-${base#linux-}"
+          done
+          tar czf Arch-linux-${{ env._cpusched }}-${{ inputs.compiler }}.tar.gz Arch-linux*.pkg.tar*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arch-kernel-packages-${{ env._cpusched }}-${{ inputs.compiler }}
+          path: Arch-linux-${{ env._cpusched }}-${{ inputs.compiler }}.tar.gz
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref_type == 'tag'
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Arch Kernel Release ${{ github.ref_name }}"
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        if: github.ref_type == 'tag'
+        with:
+          files: Arch-linux*.pkg.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
