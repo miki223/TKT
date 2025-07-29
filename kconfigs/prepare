@@ -51,8 +51,8 @@ _git_remote_names=( "${!_kernel_git_remotes[@]}" )
 
 # fill with kernel.org link if empty
 if [[ -z "$_git_mirror" ]]; then
-  msg2 "using default GregKH git remote"
-  _git_mirror="${_kernel_git_remotes['gregkh']}"
+  msg2 "using default Torvalds git remote"
+  _git_mirror="${_kernel_git_remotes['torvalds']}"
 fi
 
 # if alias, get actual link from map _kernel_git_remotes
@@ -394,7 +394,7 @@ _set_compiler(){
   if [ "$_compiler" = "llvm" ]; then
     export KCPPFLAGS
     export KCFLAGS
-    _compiler_name="-llvm"
+    _compiler_name="llvm"
     compiler_opt="CC=clang CPP=clang-cpp CXX=clang++ LD=ld.lld RANLIB=llvm-ranlib STRIP=llvm-strip AR=llvm-ar AS=llvm-as NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump LLVM=1 LLVM_IAS=${_llvm_ias:-0}"
 
     # LTO Selection
@@ -450,7 +450,7 @@ _set_compiler(){
   else # GCC fallback
     export KCPPFLAGS
     export KCFLAGS
-    _compiler_name="-gcc"
+    _compiler_name="gcc"
     compiler_opt="CC=gcc CXX=g++ LD=ld.bfd HOSTCC=gcc HOSTLD=ld.bfd AR=ar NM=nm OBJCOPY=objcopy OBJDUMP=objdump READELF=readelf RANLIB=ranlib STRIP=strip"
   fi
 
@@ -529,7 +529,7 @@ _tkg_initscript() {
   if ! git status > /dev/null 2>&1; then
     warning "TKT needs to be git cloned"
     msg2 "please delete the current TKT folder and re-created it with"
-    msg2 "git clone --depth=1 https://github.com/ETJAKEOC/TKT"
+    msg2 "git clone --depth=1 https://github.com/The-Kernel-Toolkit/TKT"
     exit 1
   fi
 
@@ -572,8 +572,73 @@ _tkg_initscript() {
 
   _set_compiler
 
+  if [ -z "$_kernel_localversion" ]; then
+      # Set the kernel name TKT style
+      _diet_tag=""
+      _modprobed_tag=""
+      _rt_tag=""
+      _compiler_name=""
+
+      [ "$_kernel_on_diet" = "true" ] && _diet_tag="diet"
+      [ "$_modprobeddb" = "true" ] && _modprobed_tag="modprobed"
+      [ "$_preempt_rt" = "1" ] && _rt_tag="rt"
+
+      if [ "$_compiler" = "llvm" ]; then
+        _compiler_name="-llvm"
+        _package_compiler="llvm"
+      else
+        _compiler_name="-gcc"
+        _package_compiler="gcc"
+      fi
+
+      # Start parts array
+      parts=( "tkt" )
+
+      # Detect distro and append to kernel name
+      shopt -s nocasematch
+      if [[ "$_distro" =~ Arch ]]; then
+        parts+=( "$(echo "$_distro" | tr '[:upper:]' '[:lower:]')" )
+      fi
+      shopt -u nocasematch
+
+      # Append tags to kernel name as needed
+      [ -n "$_diet_tag" ] && parts+=( "$_diet_tag" )
+      [ -n "$_modprobed_tag" ] && parts+=( "$_modprobed_tag" )
+      parts+=( "$_cpusched" )
+      [ -n "$_rt_tag" ] && parts+=( "$_rt_tag" )
+      parts+=( "$_package_compiler" )
+
+      _kernel_flavor=$(IFS=- ; echo "${parts[*]}")
+      {
+        echo "_diet_tag=$_diet_tag"
+        echo "_modprobed_tag=$_modprobed_tag"
+        echo "_rt_tag=$_rt_tag"
+        echo "_compiler_name=$_package_compiler"
+        echo "_cpusched=$_cpusched"
+        echo "_kernel_flavor=$_kernel_flavor"
+      } >> "$_where/TKT_CONFIG"
+  else
+      _kernel_flavor="tkt-${_kernel_localversion}"
+  fi
+
+  # Setup kernel_subver variable
+  if [[ "$_sub" = rc* ]]; then
+      # if an RC version, subver will always be 0
+      _kernel_subver=0
+  else
+      _kernel_subver="${_sub}"
+  fi
+
+  # Generate kernel name with the required information
+  _kernelname="${_basekernel}.${_sub}-${_kernel_flavor}"
+  echo "_kernelname=$_kernelname" >> "$_where/TKT_CONFIG"
+
   if [ -n "$_custom_pkgbase" ]; then
-    printf "_custom_pkgbase=\"$_custom_pkgbase\"" >> "$_where"/TKT_CONFIG
+      pkgbase="${_custom_pkgbase}"
+      echo "pkgbase=$pkgbase" >> "$_where/TKT_CONFIG"
+  else
+      pkgbase="linux-${_kernelname}"
+      echo "pkgbase=$pkgbase" >> "$_where/TKT_CONFIG"
   fi
 }
 
@@ -669,9 +734,6 @@ echo "-${_custom_pkgbase}" > localversion.10-pkgrel
   if [ "${_configfile}" = "config_hardened.x86_64" ] && [ "${_cpusched}" = "cfs" ]; then
     tkgpatch="$srcdir/0012-linux-hardened.patch"
     _msg="Using linux hardened patchset" && _tkg_patcher
-  else
-    tkgpatch="$srcdir/0001-add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER-by.patch"
-    _msg="Using Arch patches" && _tkg_patcher
   fi
 
   if [ -z $_debug ]; then
@@ -840,14 +902,14 @@ echo "-${_custom_pkgbase}" > localversion.10-pkgrel
 
   fi
 
-  if [ "${_configfile}" = "" ]; then
+  if [ -z "${_configfile}" ]; then
     msg2 "Using TKT's default config file for kernel ${_basekernel}"
     cat "${srcdir}"/config.x86_64 > ./.config
   elif [ "${_configfile}" = "OpenRC" ]; then
     msg2 "Using TKT's OpenRC config file for kernel ${_basekernel}"
-    cat "${srcdir}"/openrc-config.x86_64 > ./.config
-  elif [ "${_configfile}" = "config_hardened.x86_64" ]; then
-    msg2 "Using archlinux's hardened config file for kernel ${_basekernel}"
+    cat "${srcdir}"/config_openrc.x86_64 > ./.config
+      elif [ "${_configfile}" = "config_hardened.x86_64" ]; then
+    msg2 "Using TKT's hardened config file for kernel ${_basekernel}"
     cat "${srcdir}"/config_hardened.x86_64 > ./.config
   elif [ "${_configfile}" = "running-kernel" ]; then
     if [ -f /boot/config-`uname -r` ];then
@@ -930,7 +992,7 @@ echo "-${_custom_pkgbase}" > localversion.10-pkgrel
     fi
   fi
   # Clang LTO
-  if [ "$_compiler_name" = "-llvm" ]; then
+  if [[ "$_compiler_name" =~ llvm ]]; then
     if [ "$_lto_mode" = "full" ]; then
       _enable LTO_CLANG_FULL
       _disable LTO_CLANG_THIN
@@ -1038,6 +1100,27 @@ echo "-${_custom_pkgbase}" > localversion.10-pkgrel
 
   echo "_processor_opt='$_processor_opt'" >> "$_where"/TKT_CONFIG
 
+  # modprobed-db
+  if [[ "$_modprobeddb" == "true" || "$_kernel_on_diet" == "true" ]]; then
+    # Sanity check: can't use both
+    if [[ "$_modprobeddb" == "true" && "$_kernel_on_diet" == "true" ]]; then
+      msg2 "_modprobeddb and _kernel_on_diet cannot be used together: it doesn't make sense."
+      exit 1
+    fi
+
+    if [[ "$_kernel_on_diet" == "true" ]]; then
+      msg2 "Using TKT diet db"
+      _modprobeddb_db_path="$_where/kconfigs/$_basekernel/minimal-modprobed.db"
+
+    elif [[ "$_modprobeddb" == "true" ]]; then
+      msg2 "Using modprobed-db"
+      if [[ ! -f "$_modprobeddb_db_path" ]]; then
+        msg2 "modprobed-db database not found at $_modprobeddb_db_path"
+        exit 1
+      fi
+    fi
+  fi
+
   # Disable some debugging
   if [ "${_debugdisable}" = "true" ]; then
     _disable "SLUB_DEBUG" "PM_DEBUG" "PM_ADVANCED_DEBUG" "PM_SLEEP_DEBUG" "ACPI_DEBUG" "SCHED_DEBUG" "LATENCYTOP" "DEBUG_PREEMPT"
@@ -1066,9 +1149,6 @@ echo "-${_custom_pkgbase}" > localversion.10-pkgrel
     _enable "DEFAULT_CUBIC"
     scripts/config --set-str DEFAULT_TCP_CONG "cubic"
   fi
-
-  #######
-
 
   if [ "${_cpusched}" = "muqss" ]; then
     # MuQSS default config
@@ -1612,35 +1692,6 @@ CONFIG_DEBUG_INFO_BTF_MODULES=y\r
     #make prepare ${compiler_opt}
   fi
 
-  # modprobed-db
-
-  if [[ "$_modprobeddb" = "true" && "$_kernel_on_diet" == "true" ]]; then
-    msg2 "_modprobeddb and _kernel_on_diet cannot be used together: it doesn't make sense, _kernel_on_diet uses our own modprobed list ;)"
-    exit 1
-  fi
-
-  if [[ "$_kernel_on_diet" == "true" && "$_kver" -lt 605 ]]; then
-    msg2 "_kernel_on_diet not implemented for kernels older than 6.5"
-    exit 1
-  fi
-
-  if [[ "$_modprobeddb" = "true" || "$_kernel_on_diet" == "true" ]]; then
-    msg2 "Using modprobed-db"
-    if [ -f "$_where"/"$_modprobeddb_db_path" ]; then
-      _modprobeddb_db_path="$_where"/"$_modprobeddb_db_path"
-    fi
-    if [ "$_kernel_on_diet" == "true" ]; then
-      msg2 "Using TKT diet db"
-      _modprobeddb_db_path="$_where/minimal-modprobed.db"
-    fi
-    if [ ! -f $_modprobeddb_db_path ]; then
-      msg2 "modprobed-db database not found"
-      exit 1
-    fi
-
-    yes "" | make LSMOD=$_modprobeddb_db_path localmodconfig ${compiler_opt}
-  fi
-
   if [ true = "$_config_fragments" ]; then
     local fragments=()
     mapfile -d '' -t fragments < <(find "$_where"/ -type f -name "*.myfrag" -print0 | sort -z)
@@ -1672,7 +1723,13 @@ CONFIG_DEBUG_INFO_BTF_MODULES=y\r
 
   # rewrite configuration
   msg2 "Setting config"
-  make ${_config_updating} ${compiler_opt} |& tee -a "$_where"/logs/prepare.log.txt
+  if [[ "$_compiler_name" =~ llvm ]]; then
+    CC=clang CPP=clang-cpp CXX=clang++ LD=ld.lld RANLIB=llvm-ranlib STRIP=llvm-strip AR=llvm-ar AS=llvm-as NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump LLVM=1 LLVM_IAS=1 \
+    make ${_config_updating} ${compiler_opt} |& tee -a "$_where"/logs/prepare.log.txt
+  elif [[ "$_compiler_name" =~ gcc ]]; then
+    CC=gcc CXX=g++ LD=ld.bfd HOSTCC=gcc HOSTLD=ld.bfd AR=ar NM=nm OBJCOPY=objcopy OBJDUMP=objdump READELF=readelf RANLIB=ranlib STRIP=strip \
+    make ${_config_updating} ${compiler_opt} |& tee -a "$_where"/logs/prepare.log.txt
+  fi
 
   # Modify the kernel config file to fit Fedora SELinux configuration
   if [ "$_distro" = "Fedora" ] ; then
@@ -1793,7 +1850,7 @@ exit_cleanup() {
   rm -f "$_where"minimal_modprobed.db
 
   # Remove state tracker
-  rm -f "$_where"/TKT_CONFIG
+  #rm -f "$_where"/TKT_CONFIG
 
   # Remove ntsync rules file
   rm -f "$_where"/ntsync.rules

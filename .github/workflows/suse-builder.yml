@@ -20,7 +20,7 @@ jobs:
       compiler: ${{ inputs.compiler }}
 
     runs-on: ubuntu-latest
-    container: ghcr.io/etjakeoc/tkt-suse-dev:latest
+    container: ghcr.io/the-kernel-toolkit/tkt-suse-dev:latest
 
     steps:
       - name: Checkout TKT
@@ -33,8 +33,7 @@ jobs:
         run: |
           git config --global --add safe.directory "$(pwd)"
           if [ "${{ inputs.compiler }}" = "llvm" ] || [ "${{ inputs.compiler }}" = "clang" ]; then
-            export KCFLAGS="-Wout-of-line-declaration"
-            export KCPPFLAGS=""
+            export KCFLAGS="$KCFLAGS -Wno-error -Wno-unused-command-line-argument"
           fi
           sed -i 's/^_distro=".*"/_distro="Suse"/' customization.cfg
           sed -i 's/^_compiler=".*"/_compiler="${{ inputs.compiler }}"/' customization.cfg

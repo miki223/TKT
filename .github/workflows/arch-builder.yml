@@ -9,9 +9,7 @@ on:
       compiler:
         required: true
         type: string
-
 env:
-  _distro: "Arch"
   _IS_GHCI: "true"
 
 jobs:
@@ -21,7 +19,7 @@ jobs:
       compiler: ${{ inputs.compiler }}
 
     runs-on: ubuntu-latest
-    container: ghcr.io/etjakeoc/tkt-arch-dev:latest
+    container: ghcr.io/the-kernel-toolkit/tkt-arch-dev:latest
 
     steps:
       - name: Checkout TKT
@@ -37,7 +35,7 @@ jobs:
           _cpusched: ${{ inputs._cpusched }}
           compiler: ${{ inputs.compiler }}
         run: |
-          git config --global --add safe.directory "$(pwd)"
+          source /etc/environment
           sed -i 's/^_compiler=".*"/_compiler="${{ inputs.compiler }}"/' customization.cfg
           su --preserve-environment user -c "yes '' | makepkg --noconfirm -s"
 

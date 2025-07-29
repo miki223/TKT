@@ -8,12 +8,12 @@
 # All credits due to the previous pioneers of this script whom came before me. Thank you for your effort.
 # Hijacked by: ETJAKEOC <etjakeoc@gmail.com>
 
-pkgdesc='A customized Linux kernel install script, forked from the TKG script, aimed at a more performant tune, at the risk of unsupported hardware.'
+pkgdesc='A customized Linux kernel install script, forked from the TKG script, aimed at a more performant tune, at the risk of stability.'
 arch=('x86_64') # no i686 in here
 url="https://www.kernel.org/"
 license=('GPL2')
-makedepends=(base-devel bc bison clang coreutils cpio docbook-xsl flex gcc git \
-graphviz imagemagick inetutils  initramfs kmod libelf lld llvm pahole \
+makedepends=(base-devel bc bison coreutils cpio docbook-xsl flex git \
+graphviz imagemagick inetutils initramfs kmod libelf pahole \
 patchutils perl python-sphinx python-sphinx_rtd_theme schedtool sudo \
 tar wget xmlto xz)
 if [[ "$_compiler_name" =~ llvm ]]; then
@@ -27,41 +27,121 @@ options=('!strip')
  # track basedir as different Arch based distros are moving srcdir around
 _where="$PWD"
 
-# Create logs dir if it does not already exist.
+# Create logs dir if it does not already exist
 [ -d "$_where/logs" ] || mkdir -p "$_where/logs"
 
-# Clear TKT_CONFIG and save all settings in it fresh again
-if [ ! -e "$_where"/TKT_CONFIG ]; then
 
-  cp "$_where"/customization.cfg "$_where"/TKT_CONFIG
+if [ -n "$FAKEROOTKEY" ]; then
+  echo "Sourcing 'TKT_CONFIG' file"
+else
+  rm -f "$_where"/TKT_CONFIG
+  if [ "$_IS_GHCI" = "true" ]; then
+    msg2 "Overriding config options for GHCI build"
+    source "/GHCI.cfg"
+    # Save GHCI.cfg contents directly to TKT_CONFIG, no external overrides
+    cp /GHCI.cfg "$_where"/TKT_CONFIG
+  else
+    cp "$_where"/customization.cfg "$_where"/TKT_CONFIG
 
-  # extract and define value of _EXT_CONFIG_PATH from customization file
-  if [[ -z "$_EXT_CONFIG_PATH" ]]; then
-    eval `grep _EXT_CONFIG_PATH "$_where"/customization.cfg`
+    # extract _EXT_CONFIG_PATH from customization.cfg only if not GHCI
+    if [[ -z "$_EXT_CONFIG_PATH" ]]; then
+      eval `grep _EXT_CONFIG_PATH "$_where"/customization.cfg`
+    fi
+
+    # Only append external config if path exists
+    if [ -f "$_EXT_CONFIG_PATH" ]; then
+      msg2 "External configuration file $_EXT_CONFIG_PATH will be used and will override customization.cfg values."
+      cat "$_EXT_CONFIG_PATH" >> "$_where"/TKT_CONFIG
+    fi
   fi
-
-  if [ -f "$_EXT_CONFIG_PATH" ]; then
-    msg2 "External configuration file $_EXT_CONFIG_PATH will be used and will override customization.cfg values."
-    cat "$_EXT_CONFIG_PATH" >> "$_where"/TKT_CONFIG
-  fi
-
   declare -p -x >> "$_where"/TKT_CONFIG
-
   echo -e "_ispkgbuild=\"true\"\n_distro=\"Arch\"\n_where=\"$PWD\"" >> "$_where"/TKT_CONFIG
-
+  # Run user prompts here
   source "$_where"/TKT_CONFIG
   source "$_where"/kconfigs/prepare
-
   _tkg_initscript
+fi
+
+prepare() {
+  source "$_where"/TKT_CONFIG
+  source "$_where"/kconfigs/prepare
+  rm -rf $pkgdir # Nuke the entire pkg folder so it'll get regenerated clean on next build
+  ln -s "${_kernel_work_folder_abs}" "${srcdir}/linux-src-git"
+  _tkg_srcprep
+}
+
+source "$_where"/TKT_CONFIG
+
+if [ -z "$_kernel_localversion" ]; then
+    # Set the kernel name TKT style
+    _diet_tag=""
+    _modprobed_tag=""
+    _rt_tag=""
+    _compiler_name=""
+
+    [ "$_kernel_on_diet" = "true" ] && _diet_tag="diet"
+    [ "$_modprobeddb" = "true" ] && _modprobed_tag="modprobed"
+    [ "$_preempt_rt" = "1" ] && _rt_tag="rt"
+
+    if [ "$_compiler" = "llvm" ]; then
+      _compiler_name="-llvm"
+      _package_compiler="llvm"
+    else
+      _compiler_name="-gcc"
+      _package_compiler="gcc"
+    fi
+
+    # Start parts array
+    parts=( "tkt" )
+
+    # Append distro to kernel name
+    shopt -s nocasematch
+    parts+=( "$(echo "$_distro" | tr '[:upper:]' '[:lower:]')" )
+    shopt -u nocasematch
+
+    # Append tags to kernel name as needed
+    [ -n "$_diet_tag" ] && parts+=( "$_diet_tag" )
+    [ -n "$_modprobed_tag" ] && parts+=( "$_modprobed_tag" )
+    parts+=( "$_cpusched" )
+    [ -n "$_rt_tag" ] && parts+=( "$_rt_tag" )
+    parts+=( "$_package_compiler" )
+
+    _kernel_flavor=$(IFS=- ; echo "${parts[*]}")
+    {
+      echo "_diet_tag=$_diet_tag"
+      echo "_modprobed_tag=$_modprobed_tag"
+      echo "_rt_tag=$_rt_tag"
+      echo "_compiler_name=$_package_compiler"
+      echo "_cpusched=$_cpusched"
+      echo "_kernel_flavor=$_kernel_flavor"
+    } >> "$_where/TKT_CONFIG"
+else
+    _kernel_flavor="tkt-${_kernel_localversion}"
+fi
+
+# Setup kernel_subver variable
+if [[ "$_sub" = rc* ]]; then
+    # if an RC version, subver will always be 0
+    _kernel_subver=0
+else
+    _kernel_subver="${_sub}"
+fi
+
+# Generate kernel name with the required information
+_kernelname="${_basekernel}.${_sub}-${_kernel_flavor}"
+echo "_kernelname=$_kernelname" >> "$_where/TKT_CONFIG"
+
+if [ -n "$_custom_pkgbase" ]; then
+    pkgbase="${_custom_pkgbase}"
+    echo "pkgbase=$pkgbase" >> "$_where/TKT_CONFIG"
+else
+    pkgbase="linux-${_kernelname}"
+    echo "pkgbase=$pkgbase" >> "$_where/TKT_CONFIG"
 fi
 
 source "$_where"/TKT_CONFIG
 
-if [ -n "$_custom_pkgbase" ]; then
-  pkgbase="${_custom_pkgbase}"
-else
-  pkgbase=linux"${_basever}"-tkt-"${_cpusched}""${_compiler_name}"
-fi
+# Define the final package variables for makepkg
 pkgname=("${pkgbase}" "${pkgbase}-headers")
 pkgver="${_basekernel}"."${_sub}"
 pkgrel=1
@@ -75,30 +155,30 @@ export KBUILD_BUILD_HOST=archlinux
 export KBUILD_BUILD_USER=$pkgbase
 export KBUILD_BUILD_TIMESTAMP="$(date -Ru${SOURCE_DATE_EPOCH:+d @$SOURCE_DATE_EPOCH})"
 
-prepare() {
-  source "$_where"/TKT_CONFIG
-  source "$_where"/kconfigs/prepare
-  rm -rf $pkgdir # Nuke the entire pkg folder so it'll get regenerated clean on next build
-  ln -s "${_kernel_work_folder_abs}" "${srcdir}/linux-src-git"
-  _tkg_srcprep
-}
-
 build() {
   source "$_where"/TKT_CONFIG
-
   cd "$_kernel_work_folder_abs"
 
-  # Use custom compiler paths if defined
+  # Use user specified compiler path if set
   if [[ "$_compiler_name" =~ llvm ]] && [ -n "${CUSTOM_LLVM_PATH}" ]; then
     PATH="${CUSTOM_LLVM_PATH}/bin:${CUSTOM_LLVM_PATH}/lib:${CUSTOM_LLVM_PATH}/include:${PATH}"
-  elif [ -n "${CUSTOM_GCC_PATH}" ]; then
+  fi
+  if [[ "$_compiler_name" =~ gcc ]] && [ -n "${CUSTOM_GCC_PATH}" ]; then
     PATH="${CUSTOM_GCC_PATH}/bin:${CUSTOM_GCC_PATH}/lib:${CUSTOM_GCC_PATH}/include:${PATH}"
   fi
 
+  # Guard Clause: Exit early if the compiler is not supported
+  if [[ ! "$_compiler_name" =~ (llvm|gcc) ]]; then
+    msg2 "Fatal error: Unsupported compiler '${_compiler_name}'. Bailing out."
+    exit 1
+  fi
+
+  # SUGGESTION: Renamed variable for clarity and used modern command substitution
+  local _make_jobs_arg
   if [ "$_force_all_threads" = "true" ]; then
-    _force_all_threads="-j$((`nproc`))"
+    _make_jobs_arg="-j$(nproc)"
   else
-    _force_all_threads="${MAKEFLAGS}"
+    _make_jobs_arg="${MAKEFLAGS}"
   fi
 
   # ccache
@@ -109,39 +189,36 @@ build() {
     msg2 'ccache was found and will be used'
   fi
 
-  # document the tkt variables, excluding "_", "_EXT_CONFIG_PATH", "_where", and "_path".
+  # document the TKT variables
   declare -p | cut -d ' ' -f 3 | grep -P '^_(?!=|EXT_CONFIG_PATH|where|path)' > "${srcdir}/customization-full.cfg"
 
   # remove -O2 flag and place user optimization flag
   CFLAGS=${CFLAGS/-O2/}
   CFLAGS+=" ${_compileropt}"
+  export KCPPFLAGS KCFLAGS
 
-  # build!
   if pacman -Qq schedtool &> /dev/null; then
-    msg2 "Using schedtool"
-    _schedtool="command schedtool -B -n 1"
-    _ionice="command ionice -n 1"
+    msg2 "Using schedtool to set scheduling policy for the build."
+    local _pid="$$"
+    command schedtool -B -n 1 "$_pid" || :
+    command ionice -n 1 -p "$_pid" || :
   fi
-  _runtime=$(
-    if [ -n "$_schedtool" ]; then
-      _pid="$(exec bash -c 'echo "$PPID"')"
-      $_schedtool "$_pid" ||:
-      $_ionice -p "$_pid" ||:
-    fi
 
-    export KCPPFLAGS
-    export KCFLAGS
+  # --- Build execution ---
+  local diet_args=""
+  local diet_target=""
 
-  # Setup "llvm_opts" if compiling using clang
-  if [[ "$_compiler_name" =~ llvm ]]; then
-    time (CC=clang CPP=clang-cpp CXX=clang++ LD=ld.lld RANLIB=llvm-ranlib STRIP=llvm-strip AR=llvm-ar AS=llvm-as NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump LLVM=1 LLVM_IAS=1 \
-    make ${_force_all_threads} ${llvm_opt} bzImage modules 2>&1 ) 3>&1 1>&2 2>&3
-  elif [[ "$_compiler_name" =~ gcc ]]; then
-    time (CC=gcc CXX=g++ LD=ld.bfd HOSTCC=gcc HOSTLD=ld.bfd AR=ar NM=nm OBJCOPY=objcopy OBJDUMP=objdump READELF=readelf RANLIB=ranlib STRIP=strip \
-    make ${_force_all_threads} bzImage modules 2>&1 ) 3>&1 1>&2 2>&3
+  if [[ "$_modprobeddb" == "true" || "$_kernel_on_diet" == "true" ]]; then
+    msg2 "Building modprobed/diet kernel with ${_compiler_name^^}..."
+    diet_args="LMC_KEEP=false LMC_FILE=='${_modprobeddb_db_path}'"
+    diet_target="localmodconfig"
+  else
+    msg2 "Building generic kernel with ${_compiler_name^^}..."
   fi
-    return 0
-  )
+
+  {
+    time (env ${compiler_opt} make "${_make_jobs_arg}" ${diet_args} ${diet_target} bzImage modules)
+  } 3>&1 1>&2 2>&3
 }
 
 hackbase() {
@@ -157,9 +234,9 @@ hackbase() {
               'nvidia-dkms-tkg: NVIDIA drivers for all installed kernels - dkms version. From TK-Glitch.'
               'update-grub: Simple wrapper around grub-mkconfig.')
   if [ -e "${srcdir}/ntsync.rules" ]; then
-    provides=("linux=${pkgver}" "${pkgbase}" VIRTUALBOX-GUEST-MODULES WIREGUARD-MODULE NTSYNC-MODULE ntsync-header)
+    provides=("linux=${pkgver}-${_kernelname}" "${pkgbase}" VIRTUALBOX-GUEST-MODULES WIREGUARD-MODULE NTSYNC-MODULE ntsync-header)
   else
-    provides=("linux=${pkgver}" "${pkgbase}" VIRTUALBOX-GUEST-MODULES WIREGUARD-MODULE)
+    provides=("linux=${pkgver}-${_kernelname}" "${pkgbase}" VIRTUALBOX-GUEST-MODULES WIREGUARD-MODULE)
   fi
   replaces=(virtualbox-guest-modules-arch wireguard-arch)
 
@@ -197,13 +274,6 @@ hackbase() {
 
   # ntsync
   if [ -e "${srcdir}/ntsync.conf" ]; then
-    # Workaround for missing header on <6.14 with ntsync
-    if [ $_basever -lt 614 ]; then
-      if [ -e "${_kernel_work_folder_abs}/include/uapi/linux/ntsync.h" ] && [ ! -e "/usr/include/linux/ntsync.h" ]; then
-        msg2 "Workaround missing ntsync header"
-        install -Dm644 "${_kernel_work_folder_abs}"/include/uapi/linux/ntsync.h "${pkgdir}/usr/include/linux/ntsync.h"
-      fi
-    fi
     # Load ntsync module at boot
     msg2 "Set the ntsync module to be loaded at boot through /etc/modules-load.d"
     install -Dm644 "${srcdir}"/ntsync.conf "${pkgdir}/etc/modules-load.d/ntsync-${pkgbase}.conf"
@@ -216,18 +286,58 @@ hackbase() {
   fi
 }
 
+_ukify() {
+  # Check if the installed kernel is a UKI and update mkinitcpio preset
+  msg2 "Checking if the installed kernel is a Unified Kernel Image (UKI)..."
+  if _is_uki "$modulesdir/vmlinuz"; then
+    msg2 "Unified Kernel Image detected, updating mkinitcpio preset..."
+
+    # Create or update the mkinitcpio preset file
+    local preset_file="${pkgdir}/etc/mkinitcpio.d/${pkgbase}.preset"
+    mkdir -p "${pkgdir}/etc/mkinitcpio.d"
+
+    # Write a UKI-compatible preset
+    cat > "$preset_file" <<EOF
+# mkinitcpio preset file for ${pkgbase} (UKI configuration)
+
+ALL_config="/etc/mkinitcpio.conf"
+ALL_kver="${_kernver}"
+PRESETS=('default')
+
+default_image="/boot/${pkgbase}.efi"
+default_uki="/boot/${pkgbase}.efi"
+default_options="--splash /usr/share/systemd/bootctl/splash-arch.bmp"
+EOF
+
+    msg2 "Updated mkinitcpio preset file at ${preset_file} for UKI"
+  else
+    msg2 "No Unified Kernel Image detected, using standard preset configuration..."
+
+    # Create a standard preset file (if needed)
+    local preset_file="${pkgdir}/etc/mkinitcpio.d/${pkgbase}.preset"
+    mkdir -p "${pkgdir}/etc/mkinitcpio.d"
+
+    cat > "$preset_file" <<EOF
+# mkinitcpio preset file for ${pkgbase}
+
+ALL_config="/etc/mkinitcpio.conf"
+ALL_kver="${_kernver}"
+PRESETS=('default')
+
+default_image="/boot/vmlinuz-${pkgbase}"
+default_initramfs="/boot/initramfs-${pkgbase}.img"
+default_options=""
+EOF
+
+    msg2 "Created standard mkinitcpio preset file at ${preset_file}"
+  fi
+}
+
 hackheaders() {
   source "$_where"/TKT_CONFIG
 
   pkgdesc="Headers and scripts for building modules for the $pkgdesc kernel"
-  provides=("linux-headers=${pkgver}" "${pkgbase}-headers=${pkgver}")
-  case $_basever in
-    54|57|58|59|510)
-    ;;
-    *)
-      depends=('pahole')
-    ;;
-  esac
+  provides=("linux-headers=${pkgver}-${_kernelname}" "${pkgbase}-headers=${pkgver}-${_kernelname}")
 
   cd "$_kernel_work_folder_abs"
 
@@ -246,8 +356,8 @@ hackheaders() {
   # add xfs and shmem for aufs building
   mkdir -p "$builddir"/{fs/xfs,mm}
 
-  # add resolve_btfids on 5.16+
-  if [[ $_basever = 6* ]] || [ $_basever -ge 516 ]; then
+  # add resolve_btfids on 6.x
+  if [[ $_basever = 6* ]]; then
     install -Dt "$builddir"/tools/bpf/resolve_btfids tools/bpf/resolve_btfids/resolve_btfids || ( warning "$builddir/tools/bpf/resolve_btfids was not found. This is undesirable and might break dkms modules !!! Please review your config changes and consider using the provided defconfig and tweaks without further modification." && read -rp "Press enter to continue anyway" )
   fi
 
@@ -334,57 +444,9 @@ hackheaders() {
   fi
 }
 
-_ukify() {
-  msg2 "Checking if the installed kernel is a Unified Kernel Image (UKI)..."
-
-  local preset_file="${pkgdir}/etc/mkinitcpio.d/${pkgbase}.preset"
-  mkdir -p "${pkgdir}/etc/mkinitcpio.d"
-
-    # If preset already exists, back it up
-  if [[ -f "$preset_file" ]]; then
-    msg2 "Existing preset found at ${preset_file}, backing it up to ${preset_file}.old"
-    mv "$preset_file" "${preset_file}.old"
-  fi
-
-  if _is_uki "$modulesdir/vmlinuz"; then
-    msg2 "Unified Kernel Image detected, updating mkinitcpio preset..."
-
-    cat > "$preset_file" <<EOF
-# mkinitcpio preset file for ${pkgbase} (UKI configuration)
-
-ALL_config="/etc/mkinitcpio.conf"
-ALL_kver="${_kernver}"
-PRESETS=('default')
-default_image="/boot/EFI/${pkgbase}.efi"
-default_uki="/boot/EFI/${pkgbase}.efi"
-default_options="--splash /usr/share/systemd/bootctl/splash-arch.bmp"
-EOF
-
-    msg2 "Updated mkinitcpio preset file at ${preset_file} for UKI"
-  else
-    msg2 "No Unified Kernel Image detected, using standard preset configuration..."
-
-    cat > "$preset_file" <<EOF
-# mkinitcpio preset file for ${pkgbase}
-
-ALL_config="/etc/mkinitcpio.conf"
-ALL_kver="${_kernver}"
-PRESETS=('default')
-default_image="/boot/vmlinuz-${pkgbase}"
-default_initramfs="/boot/initramfs-${pkgbase}.img"
-default_options="--splash /usr/share/systemd/bootctl/splash-arch.bmp"
-EOF
-
-    msg2 "Created standard mkinitcpio preset file at ${preset_file}"
-  fi
-}
-
 source /dev/stdin <<EOF
 package_${pkgbase}() {
 hackbase
-if [[ "\$_ukify" == "true" ]]; then
-  _ukify
-fi
 }
 
 package_${pkgbase}-headers() {

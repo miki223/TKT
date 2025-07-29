@@ -17,10 +17,11 @@ env:
 jobs:
   build-kernel:
     runs-on: ubuntu-latest
-    container: ghcr.io/etjakeoc/tkt-slackware-dev:latest
+    container: ghcr.io/the-kernel-toolkit/tkt-slackware-dev:latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GIT_SSL_CAINFO: /etc/ssl/certs/ca-certificates.crt
+
     steps:
       - name: Checkout TKT
         uses: actions/checkout@v4
@@ -31,6 +32,7 @@ jobs:
           _cpusched: ${{ inputs._cpusched }}
           compiler: ${{ inputs.compiler }}
         run: |
+          source /etc/environment
           git config --global --add safe.directory "$(pwd)"
           git config --global http.sslCAInfo /etc/ssl/certs/ca-certificates.crt
           sed -i 's/^_distro=".*"/_distro="Slackware"/' customization.cfg
