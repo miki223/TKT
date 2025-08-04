@@ -1,6 +1,6 @@
 name:  build kernel with Nix
 on: workflow_dispatch
-    inputs :
+    inputs:
         kernel_attribute:
             type: string
             required: true
