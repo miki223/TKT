@@ -15,5 +15,5 @@ jobs:
       with:
         name: mycache #
         authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}" #
-    - run: nix build .#${{inputs.kernel_attribute}}| cachix push
+    - run: nix build .#${{inputs.kernel_attribute}}| cachix push tkt-cache
 
