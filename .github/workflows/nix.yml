@@ -13,7 +13,7 @@ jobs:
     - uses: cachix/install-nix-action@v22
     - uses: cachix/cachix-action@v15
       with:
-        name: mycache #
+        name: tkt-cache
         authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}" #
-    - run: nix build ${{ github.workspace }}#${{inputs.kernel_attribute}}| cachix push tkt-cache
+    - run: nix build --no-write-lock-file --print-out-paths  --print-build-logs ${{ github.workspace }}#${{inputs.kernel_attribute}}| cachix push tkt-cache
 
