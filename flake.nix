@@ -1,6 +1,15 @@
 {
   description = "A very basic flake";
+nixConfig  = {
+extra-substitors = [
+"httpsL//tkt-cache.cachix.org"
 
+];
+  extra-trusted-public-keys = [
+  "tkt-cache.cachix.org-1:/W511kfAgRPaUzA3Igf4ahN181qFRl745blhvfQOBio="
+
+  ];
+};
   inputs = {
     nix-filter .url = "github:numtide/nix-filter";
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
