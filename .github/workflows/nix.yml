@@ -16,5 +16,5 @@ jobs:
         name: tkt-cache
         authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}" #
     -  run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-    - run: nix build --no-write-lock-file --print-out-paths  --print-build-logs ${{ github.workspace }}#${{inputs.kernel_attribute}}
+    - run: nix build    --print-build-logs .#${{inputs.kernel_attribute}}
 
