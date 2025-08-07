@@ -5,6 +5,9 @@ on:
         kernel_attribute:
           type: string
           required: true
+      secrets:
+        CACHIX_AUTH_TOKEN:
+          required: true
   workflow_dispatch:
     inputs:
       kernel_attribute:
