@@ -1,10 +1,17 @@
 name: build kernel with Nix
 on:
+  workflow_call:
+      inputs:
+        kernel_attribute:
+          type: string
+          required: true
   workflow_dispatch:
     inputs:
       kernel_attribute:
         type: string
         required: true
+
+
 jobs:
   build:
     runs-on: ubuntu-latest
