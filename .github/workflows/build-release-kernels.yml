@@ -49,6 +49,8 @@ jobs:
       _cpusched: ${{ matrix._cpusched }}
       compiler: ${{ matrix.compiler }}
       os: ${{ matrix.os }}
+    secrets:
+      CACHIX_AUTH_TOKEN: "${{secrets.CACHIX_AUTH_TOKEN}}"
 
   make-release:
     runs-on: ubuntu-latest
