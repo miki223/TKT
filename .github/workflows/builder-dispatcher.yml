@@ -59,4 +59,4 @@ jobs:
     with:
       kernel_attribute: linux_6_16-tkt
     secrets:
-      CACHIX_AUTH_TOKEN: ${{secrets.CACHIX_AUTH_TOKEN}}
+      CACHIX_AUTH_TOKEN: "${{secrets.CACHIX_AUTH_TOKEN}}"
