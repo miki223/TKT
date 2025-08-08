@@ -56,7 +56,7 @@ jobs:
       _cpusched: ${{ inputs._cpusched }}
       compiler: ${{ inputs.compiler }}
     if: inputs.os == 'ubuntu'
-  dispatch-to-Nix:
+  dispatch-to-Nix-gcc:
     uses:   ./.github/workflows/nix-builder.yml
     with:
       kernel_attribute: linux_6_16-tkt
