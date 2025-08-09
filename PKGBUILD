@@ -32,8 +32,12 @@ _where="$PWD"
 
 # Clear TKT_CONFIG and save all settings in it fresh again
 if [ ! -e "$_where"/TKT_CONFIG ]; then
-
-  cp "$_where"/customization.cfg "$_where"/TKT_CONFIG
+  if [ "$_IS_GHCI" = "true" ]; then
+    msg2 "Overriding config options for GHCI build"
+    source "/GHCI.cfg"
+  else
+    cp "$_where"/customization.cfg "$_where"/TKT_CONFIG
+  fi
 
   # extract and define value of _EXT_CONFIG_PATH from customization file
   if [[ -z "$_EXT_CONFIG_PATH" ]]; then
@@ -132,22 +136,19 @@ build() {
     export KCPPFLAGS
     export KCFLAGS
 
-  # Setup "llvm_opts" if compiling using clang
-  if [[ "$_compiler_name" =~ llvm ]]; then
-      msg2 "Building kernel..."
-      time ("${compiler_opt}" make "${_force_all_threads}" bzImage modules 2>&1 ) 3>&1 1>&2 2>&3
-    elif [[ "$_modprobeddb" = "true" || "$_kernel_on_diet" == "true" ]]; then
-      msg2 "Building diet kernel..."
-      time ("${compiler_opt}" make "${_force_all_threads}" LSMOD="$_modprobeddb_db_path localmodconfig" bzImage modules 2>&1 ) 3>&1 1>&2 2>&3
-    elif [[ "$_compiler_name" =~ gcc ]]; then
-      msg2 "Building kernel..."
-      time ("${compiler_opt}" make ${_force_all_threads} bzImage modules 2>&1 ) 3>&1 1>&2 2>&3
-    elif [[ "$_modprobeddb" = "true" || "$_kernel_on_diet" == "true" ]]; then
-      msg2 "Building diet kernel..."
-      time ("${compiler_opt}" make "${_force_all_threads}" LSMOD="$_modprobeddb_db_path localmodconfig" bzImage modules 2>&1 ) 3>&1 1>&2 2>&3
-    else
-      msg2 "Fatal error: Not compiling. Bailing out"
-      exit 1
+  # Determine if we're doing a diet kernel
+  if [[ "$_modprobeddb" == "true" || "$_kernel_on_diet" == "true" ]]; then
+    msg2 "Building diet kernel..."
+    time env ${compiler_opt} make ${_force_all_threads} LSMOD="$_modprobeddb_db_path localmodconfig" bzImage modules
+  elif [[ "$_compiler_name" =~ llvm ]]; then
+    msg2 "Building kernel (LLVM)..."
+    time env ${compiler_opt} make ${_force_all_threads} bzImage modules
+  elif [[ "$_compiler_name" =~ gcc ]]; then
+    msg2 "Building kernel (GCC)..."
+    time env ${compiler_opt} make ${_force_all_threads} bzImage modules
+  else
+    msg2 "Fatal error: Not compiling. Bailing out"
+    exit 1
   fi
     return 0
   )
