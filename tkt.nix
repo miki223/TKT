@@ -14,6 +14,8 @@ let
   name = if stdenv.cc.isGNU then "GCC" else  if stdenv.cc.isClang then "LLVM" else "unknown";
   version = stdenv.cc.version;
   };
+  patchdir  = "${ksources}/kpatches/${kversionNoPatch}";
+
   in
 
 
@@ -27,35 +29,35 @@ linuxManualConfig  {
  kernelPatches = [
         {
         name = "add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER";
-        patch =   "${ksources}/kpatches/${kversionNoPatch}/0001-add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER-by.patch";
+        patch =   "${patchdir}/0001-add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER-by.patch";
         }
         {
         name = "bore";
-        patch  =  "${ksources}/kpatches/${kversionNoPatch}/0001-bore.patch";
+        patch  =  "${patchdir}/0001-bore.patch";
         }
         {
        name = "clear-patches";
-       patch  =  "${ksources}/kpatches/${kversionNoPatch}/0002-clear-patches.patch";
+       patch  =  "${patchdir}/0002-clear-patches.patch";
         }
         {
         name = "glitched-base ";
-        patch  =  "${ksources}/kpatches/${kversionNoPatch}/0003-glitched-base.patch";
+        patch  =  "${patchdir}/0003-glitched-base.patch";
         }
         {
         name = "glitched-cfs";
-        patch = " ${ksources}/kpatches/${kversionNoPatch}//0003-glitched-cfs.patch";
+        patch = " ${patchdir}//0003-glitched-cfs.patch";
         }
         {
         name = "add-acs-overrides_iommu";
-        patch = " ${ksources}/kpatches/${kversionNoPatch}/0006-add-acs-overrides_iommu.patch";
+        patch = " ${patchdir}/0006-add-acs-overrides_iommu.patch";
         }
         {
       name = "0006-add-acs-";
-      patch = " ${ksources}/kpatches/${kversionNoPatch}//0012-misc-additions.patch";
+      patch = " ${patchdir}//0012-misc-additions.patch";
         }
      {
      name = "OpenRGB";
-     patch = "${ksources}/kpatches/${kversionNoPatch}//0014-OpenRGB.patch";
+     patch = "${patchdir}//0014-OpenRGB.patch";
      }
 
   ];
