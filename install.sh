@@ -33,7 +33,12 @@ if [[ -z "$SCRIPT" ]]; then
   declare -p -x > current_env
 fi
 
-source customization.cfg
+if [ "$_IS_GHCI" = "true" ]; then
+  msg2 "Overriding config options for GHCI build"
+  source "/GHCI.cfg"
+else
+  source "$_where"/customization.cfg
+fi
 
 if [ -e "$_EXT_CONFIG_PATH" ]; then
   msg2 "External configuration file $_EXT_CONFIG_PATH will be used and will override customization.cfg values."
@@ -229,25 +234,33 @@ _gen_kern_name() {
     if [[ "$_modprobeddb" = "true" || "$_kernel_on_diet" == "true" ]]; then
       if [[ "$_compiler_name" =~ llvm ]]; then
         msg2 "Building diet kernel..."
-        time (CC=clang CPP=clang-cpp CXX=clang++ LD=ld.lld RANLIB=llvm-ranlib STRIP=llvm-strip AR=llvm-ar AS=llvm-as NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump LLVM=1 LLVM_IAS=1 \
-        make LSMOD="$_modprobeddb_db_path localmodconfig ${_force_all_threads} ${compiler_opt}" "$@" 2>&1 ) 3>&1 1>&2 2>&3
+        time env ${compiler_opt} make LSMOD="$_modprobeddb_db_path localmodconfig ${_force_all_threads}" "$@"
+      elif [[ "$_compiler_name" =~ llvm && "$1" = "verbose" ]]; then
+        msg2 "Building diet kernel..."
+        time env ${compiler_opt} make V=2 LSMOD="$_modprobeddb_db_path localmodconfig ${_force_all_threads}" "$@"
       elif [[ "$_compiler_name" =~ gcc ]]; then
         msg2 "Building diet kernel..."
-        time (CC=gcc CXX=g++ LD=ld.bfd HOSTCC=gcc HOSTLD=ld.bfd AR=ar NM=nm OBJCOPY=objcopy OBJDUMP=objdump READELF=readelf RANLIB=ranlib STRIP=strip \
-        make LSMOD="$_modprobeddb_db_path localmodconfig ${_force_all_threads} ${compiler_opt}" "$@" 2>&1 ) 3>&1 1>&2 2>&3
+        time env ${compiler_opt} make LSMOD="$_modprobeddb_db_path localmodconfig ${_force_all_threads}" "$@"
+      elif [[ "$_compiler_name" =~ gcc && "$1" = "verbose" ]]; then
+        msg2 "Building diet kernel..."
+        time env ${compiler_opt} make V=2 LSMOD="$_modprobeddb_db_path localmodconfig ${_force_all_threads}" "$@"
       fi
     fi
 
     # Kernels
-    if [ "$1" = "verbose" ]; then
-      msg2 "Building kernel..."
-      (CC=clang CPP=clang-cpp CXX=clang++ LD=ld.lld RANLIB=llvm-ranlib STRIP=llvm-strip AR=llvm-ar AS=llvm-as NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump LLVM=1 LLVM_IAS=1 \
-        make V=2 "${_force_all_threads}" "${compiler_opt}" "$@" 2>&1 ) 3>&1 1>&2 2>&3
-    else
-      msg2 "Building kernel..."
-      (CC=clang CPP=clang-cpp CXX=clang++ LD=ld.lld RANLIB=llvm-ranlib STRIP=llvm-strip AR=llvm-ar AS=llvm-as NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump LLVM=1 LLVM_IAS=1 \
-        make "${_force_all_threads}" "${compiler_opt}" "$@" 2>&1 ) 3>&1 1>&2 2>&3
-    fi
+     if [[ "$_compiler_name" =~ llvm ]]; then
+       msg2 "Building kernel..."
+       time env ${compiler_opt} make "${_force_all_threads}" "$@"
+    elif [[ "$_compiler_name" =~ llvm && "$1" = "verbose" ]]; then
+       msg2 "Building kernel..."
+       time env ${compiler_opt} make V=2 "${_force_all_threads}" "$@"
+    elif [[ "$_compiler_name" =~ gcc ]]; then
+       msg2 "Building kernel..."
+       time env ${compiler_opt} make "${_force_all_threads}" "$@"
+    elif [[ "$_compiler_name" =~ gcc && "$1" = "verbose" ]]; then
+       msg2 "Building kernel..."
+       time env ${compiler_opt} make V=2 "${_force_all_threads}" "$@"
+     fi
   }
 
   # Copy winesync header if present
