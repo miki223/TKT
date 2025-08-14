@@ -1,5 +1,5 @@
 
-{ lib, fetchFromGitHub, linuxManualConfig, linux,stdenv , features ? {},kernelPatches ? [],randstructSeed ? ""}:
+{ lib, fetchFromGitHub, linuxManualConfig, linux,stdenv , features ? {},kernelPatches ? [],randstructSeed ? "",withBore ? true}:
 
 
 
@@ -15,6 +15,24 @@ let
   version = stdenv.cc.version;
   };
   patchdir  = "${ksources}/kpatches/${kversionNoPatch}";
+  scheduler = if withBore then [
+   {
+        name = "bore";
+        patch  =  "${patchdir}/0001-bore.patch";
+        }
+
+
+  ] else [
+
+     {
+        name = "glitched-eevdf-additions" ;
+        patch  =  "${patchdir}/0003-glitched-eevdf-additions.patch";
+      }
+      {
+      name = "prjc";
+      patch = "${patchdir}/0009-prjc.patch";
+      }
+  ];
 
   in
 
@@ -31,10 +49,7 @@ linuxManualConfig  {
         name = "add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER";
         patch =   "${patchdir}/0001-add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER-by.patch";
         }
-        {
-        name = "bore";
-        patch  =  "${patchdir}/0001-bore.patch";
-        }
+
         {
        name = "clear-patches";
        patch  =  "${patchdir}/0002-clear-patches.patch";
@@ -60,7 +75,7 @@ linuxManualConfig  {
      patch = "${patchdir}//0014-OpenRGB.patch";
      }
 
-  ];
+  ] ++ scheduler;
 
 
 
