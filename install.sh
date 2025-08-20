@@ -454,7 +454,7 @@ if [ "$1" = "install" ] || [ "$1" = "verbose" ]; then
     _gen_kern_name
     ./scripts/config --set-str LOCALVERSION "-${_kernel_flavor}"
     msg2 "Building kernel"
-    _make || { echo "Kernel build failed"; exit 1; }
+    _make bzImage modules || { echo "Kernel build failed"; exit 1; }
     msg2 "Build successful"
     _winesync_copy
 
@@ -607,7 +607,7 @@ EOF
     ./scripts/config --set-str LOCALVERSION "-${_kernel_flavor}"
 
     msg2 "Building kernel for ${_distro}..."
-    _make || { echo "Kernel build failed"; exit 1; }
+    _make bzImage modules || { echo "Kernel build failed"; exit 1; }
     msg2 "Build successful"
     _winesync_copy
 
@@ -713,7 +713,7 @@ EOF
     _gen_kern_name
     ./scripts/config --set-str LOCALVERSION "-${_kernel_flavor}"
     msg2 "Building kernel"
-    make -j ${_thread_num}
+    _make bzImage modules
     msg2 "Build successful"
 
     if [ "$_STRIP" = "true" ]; then
