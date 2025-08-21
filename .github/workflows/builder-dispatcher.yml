@@ -11,7 +11,9 @@ on:
       compiler:
         required: true
         type: string
-
+    secrets:
+      CACHIX_AUTH_TOKEN:
+        required: true
 jobs:
   dispatch-to-arch:
     uses: ./.github/workflows/arch-builder.yml
@@ -54,3 +56,9 @@ jobs:
       _cpusched: ${{ inputs._cpusched }}
       compiler: ${{ inputs.compiler }}
     if: inputs.os == 'ubuntu'
+  dispatch-to-Nix:
+    uses: ./.github/workflows/nix-builder.yml
+    with:
+      kernel_attribute: linux_6_16-tlt
+    secrets:
+      CACHIX_AUTH_TOKEN: ${{secrets.CACHIX_AUTH_TOKEN}}
