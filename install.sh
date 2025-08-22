@@ -251,12 +251,12 @@ _gen_kern_name() {
     if [[ "$_modprobeddb" == "true" || "$_kernel_on_diet" == "true" ]]; then
       msg2 "Building modprobed/diet kernel..."
       {
-        time (env ${compiler_opt} make "${verbose_opt}" LSMOD="$_modprobeddb_db_path" localmodconfig -j${_thread_num} "$@")
+        time (env ${compiler_opt} make ${verbose_opt} LSMOD="$_modprobeddb_db_path" localmodconfig -j${_thread_num:-1} "$@")
       } 3>&1 1>&2 2>&3
     else
       msg2 "Building kernel..."
       {
-        time (env ${compiler_opt} make "${verbose_opt}" -j${_thread_num} "$@")
+        time (env ${compiler_opt} make ${verbose_opt} -j${_thread_num:-1} "$@")
       } 3>&1 1>&2 2>&3
     fi
     }
