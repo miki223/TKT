@@ -1,5 +1,5 @@
 
-{ lib, fetchFromGitHub, linuxManualConfig, linux,stdenv , features ? {},kernelPatches ? [],randstructSeed ? "",withBore ? true}:
+{ lib, fetchFromGitHub, linuxManualConfig, linux,stdenv , features ? {},kernelPatches ? [],randstructSeed ? "",withBore ? true,minimal-modules ? true}:
 
 
 
@@ -43,7 +43,7 @@ linuxManualConfig  {
   configfile = "${ksources}/kconfigs/${kversionNoPatch}/config.x86_64";
   inherit (linux) src;
  inherit  stdenv;
- extraMakeFlags = ["LOCALVERSION=-tkt-${compiler.name}_${compiler.version}"];
+ extraMakeFlags = ["LOCALVERSION=-tkt-${compiler.name}_${compiler.version}" ] ++ lib.lists.optionals minimal-modules ["LSMOD=${ksources}/kconfigs/${kversionNoPatch}/minimal-modprobed.db" "localmodconfig"];
  kernelPatches = [
         {
         name = "add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER";
