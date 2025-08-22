@@ -12,19 +12,19 @@ if ! command -v sudo >/dev/null; then
 fi
 
 msg2() {
- echo -e " \033[1;34m->\033[1;0m \033[1;1m$1\033[1;0m" >&2
+  echo -e " \033[1;34m->\033[1;0m \033[1;1m$1\033[1;0m" >&2
 }
 
 error() {
- echo -e " \033[1;31m==> ERROR: $1\033[1;0m" >&2
+  echo -e " \033[1;31m==> ERROR: $1\033[1;0m" >&2
 }
 
 warning() {
- echo -e " \033[1;33m==> WARNING: $1\033[1;0m" >&2
+  echo -e " \033[1;33m==> WARNING: $1\033[1;0m" >&2
 }
 
 plain() {
- echo -e "$1" >&2
+  echo -e "$1" >&2
 }
 
 ################### Config sourcing
@@ -237,143 +237,143 @@ _gen_kern_name() {
   # Generate kernel name once, re-used everywhere
   _kernelname="${_basekernel}.${_sub}-${_kernel_flavor}"
   _kernelname_rpm="${_basekernel}.${_sub}-${_kernel_flavor//-/_}"
-  }
+}
 
-  # Condense repeated make flags
-  _make() {
-    local verbose_opt=""
+# Condense repeated make flags
+_make() {
+  local verbose_opt=""
 
-    if [[ "$1" == "verbose" ]]; then
-      verbose_opt="V=2"
-      shift
-    fi
+  if [[ "$1" == "verbose" ]]; then
+    verbose_opt="V=2"
+    shift
+  fi
 
-    if [[ "$_modprobeddb" == "true" || "$_kernel_on_diet" == "true" ]]; then
-      msg2 "Building modprobed/diet kernel..."
-      {
-        time (env ${compiler_opt} make ${verbose_opt} LSMOD="$_modprobeddb_db_path" localmodconfig -j${_thread_num:-1} "$@")
-      } 3>&1 1>&2 2>&3
-    else
-      msg2 "Building kernel..."
-      {
-        time (env ${compiler_opt} make ${verbose_opt} -j${_thread_num:-1} "$@")
-      } 3>&1 1>&2 2>&3
-    fi
-    }
+  if [[ "$_modprobeddb" == "true" || "$_kernel_on_diet" == "true" ]]; then
+    msg2 "Building modprobed/diet kernel..."
+    {
+      time (env ${compiler_opt} make ${verbose_opt} LSMOD="$_modprobeddb_db_path" localmodconfig -j${_thread_num:-1} "$@")
+    } 3>&1 1>&2 2>&3
+  else
+    msg2 "Building kernel..."
+    {
+      time (env ${compiler_opt} make ${verbose_opt} -j${_thread_num:-1} "$@")
+    } 3>&1 1>&2 2>&3
+  fi
+}
 
-  # Copy winesync header if present
-  _winesync_copy() {
-    if [ -e "${_where}/winesync.rules" ]; then
-      sudo mkdir -p /usr/include/linux/
-      sudo cp "$_kernel_work_folder_abs"/include/uapi/linux/winesync.h /usr/include/linux/winesync.h
-    fi
-  }
+# Copy winesync header if present
+_winesync_copy() {
+  if [ -e "${_where}/winesync.rules" ]; then
+    sudo mkdir -p /usr/include/linux/
+    sudo cp "$_kernel_work_folder_abs"/include/uapi/linux/winesync.h /usr/include/linux/winesync.h
+  fi
+}
 
-  # Make versioned output dir and move artifacts in
-  _move_artifacts() {
-    local ext="$1"
+# Make versioned output dir and move artifacts in
+_move_artifacts() {
+  local ext="$1"
 
-    if [[ "$_distro" =~ ^(Fedora|Suse)$ ]]; then
-      _search_dir="$_fedora_work_dir/RPMS/x86_64"
-      mkdir -p "$_where/${_kernelname_rpm}"
-    else
-      _search_dir="$_where"
-      mkdir -p "$_where/${_kernelname}"
-    fi
+  if [[ "$_distro" =~ ^(Fedora|Suse)$ ]]; then
+    _search_dir="$_fedora_work_dir/RPMS/x86_64"
+    mkdir -p "$_where/${_kernelname_rpm}"
+  else
+    _search_dir="$_where"
+    mkdir -p "$_where/${_kernelname}"
+  fi
 
-    # Find files matching extension
-    mapfile -t files < <(find "$_search_dir" -type f -iname "*.$ext")
+  # Find files matching extension
+  mapfile -t files < <(find "$_search_dir" -type f -iname "*.$ext")
 
-    if [ ${#files[@]} -eq 0 ]; then
-      msg2 "No .$ext artifacts found under $_search_dir"
-      return 1
-    fi
+  if [ ${#files[@]} -eq 0 ]; then
+    msg2 "No .$ext artifacts found under $_search_dir"
+    return 1
+  fi
 
-    if [[ "$_distro" =~ ^(Fedora|Suse)$ ]]; then
-      # For Fedora use the underscore kernelname dir
-      mv "${files[@]}" "$_where/${_kernelname_rpm}/"
-      # For other distros, use dash kernelname dir
-    else
-      mv "${files[@]}" "$_where/${_kernelname}/"
-    fi
-  }
+  if [[ "$_distro" =~ ^(Fedora|Suse)$ ]]; then
+    # For Fedora use the underscore kernelname dir
+    mv "${files[@]}" "$_where/${_kernelname_rpm}/"
+    # For other distros, use dash kernelname dir
+  else
+    mv "${files[@]}" "$_where/${_kernelname}/"
+  fi
+}
 
-  # Prompt install confirm
-  _confirm_install() {
-    if [[ "$_install_after_building" = "prompt" ]]; then
-      read -p "Do you want to install the new Kernel ? Y/[n]: " _install
-    fi
+# Prompt install confirm
+_confirm_install() {
+  if [[ "$_install_after_building" = "prompt" ]]; then
+    read -p "Do you want to install the new Kernel ? Y/[n]: " _install
+  fi
 
-    if [[ "$_install_after_building" =~ ^(Y|y|Yes|yes)$ || "$_install" =~ ^(Y|y|Yes|yes)$ ]]; then
-      return 0
-    else
-      return 1
-    fi
-  }
+  if [[ "$_install_after_building" =~ ^(Y|y|Yes|yes)$ || "$_install" =~ ^(Y|y|Yes|yes)$ ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
 
-  #  initramfs + GRUB2
-  _regen_boot() {
-    msg2 "Creating initramfs"
+#  initramfs + GRUB2
+_regen_boot() {
+  msg2 "Creating initramfs"
 
   # Probe if dracut is available
   if command -v dracut >/dev/null 2>&1; then
-      use_dracut=true
+    use_dracut=true
   else
-      use_dracut=false
+    use_dracut=false
   fi
 
   # Probe if mkinitcpio is available
   if command -v mkinitcpio >/dev/null 2>&1; then
-      use_mkinitcpio=true
+    use_mkinitcpio=true
   else
-      use_mkinitcpio=false
+    use_mkinitcpio=false
   fi
 
   # Probe if update-initramfs is available
   if command -v update-initramfs >/dev/null 2>&1; then
-      use_update_initramfs=true
+    use_update_initramfs=true
   else
-      use_update_initramfs=false
+    use_update_initramfs=false
   fi
 
   # Generate initramfs using available initramfs tool
   if [ "$use_dracut" = true ]; then
-      if [[ "$_distro" =~ ^(Fedora|Suse)$ ]]; then
-        echo "Running 'dracut' to generate the 'initramfs' file for $_distro..."
-        sudo dracut --force --hostonly ${_dracut_options} --kver "$_kernelname_rpm"
-      else
-        echo "Running 'dracut' to generate the 'initramfs' file for $_distro..."
-        sudo dracut --force --hostonly ${_dracut_options} --kver "$_kernelname"
-      fi
+    if [[ "$_distro" =~ ^(Fedora|Suse)$ ]]; then
+      echo "Running 'dracut' to generate the 'initramfs' file for $_distro..."
+      sudo dracut --force --hostonly ${_dracut_options} --kver "$_kernelname_rpm"
+    else
+      echo "Running 'dracut' to generate the 'initramfs' file for $_distro..."
+      sudo dracut --force --hostonly ${_dracut_options} --kver "$_kernelname"
+    fi
 
   elif [ "$use_mkinitcpio" = true ]; then
-      echo "Running 'mkinitcpio' to generate the 'initramfs' file..."
-      sudo mkinitcpio -k "$_kernelname" -g "/boot/initramfs-${_kernelname}.img"
+    echo "Running 'mkinitcpio' to generate the 'initramfs' file..."
+    sudo mkinitcpio -k "$_kernelname" -g "/boot/initramfs-${_kernelname}.img"
   elif [ "$use_update_initramfs" = true ]; then
-      echo "Running 'update-initramfs' to generate the 'initramfs' file..."
-      sudo update-initramfs -c -k "$_kernelname"
+    echo "Running 'update-initramfs' to generate the 'initramfs' file..."
+    sudo update-initramfs -c -k "$_kernelname"
   else
-      echo "Error: Unable to find dracut, mkinitcpio, or update-initramfs command."
-      exit 1
+    echo "Error: Unable to find dracut, mkinitcpio, or update-initramfs command."
+    exit 1
   fi
 
-    # Probe for the name of the GRUB configuration command
+  # Probe for the name of the GRUB configuration command
   if command -v grub-mkconfig >/dev/null 2>&1; then
-      grub_cfg_cmd="sudo grub-mkconfig -o /boot/grub/grub.cfg"
+    grub_cfg_cmd="sudo grub-mkconfig -o /boot/grub/grub.cfg"
   elif command -v grub2-mkconfig >/dev/null 2>&1; then
-      grub_cfg_cmd="sudo grub2-mkconfig -o /boot/grub2/grub.cfg"
+    grub_cfg_cmd="sudo grub2-mkconfig -o /boot/grub2/grub.cfg"
   else
-      echo "Error: Unable to find grub-mkconfig or grub2-mkconfig command."
-      use_grub=false
+    echo "Error: Unable to find grub-mkconfig or grub2-mkconfig command."
+    use_grub=false
   fi
 
-    msg2 "Updating GRUB"
+  msg2 "Updating GRUB"
   if [ "$_use_grub" = "false" ]; then
     echo "GRUB2 not installed, skipping GRUB2 steps..."
   else
     sudo ${_grub_cfg_cmd}
   fi
-  }
+}
 
 if [ "$1" != "install" ] && [ "$1" != "config" ] && [ "$1" != "verbose" ] && [ "$1" != "uninstall-help" ]; then
   msg2 "Argument not recognised, options are:
