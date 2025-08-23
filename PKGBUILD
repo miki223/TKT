@@ -403,13 +403,13 @@ hackheaders() {
     if [[ "$_compiler_name" =~ llvm ]]; then
       case "$(file -Sib "$file")" in
         application/x-sharedlib\;*)      # Libraries (.so)
-          strip --strip-all-gnu $STRIP_SHARED "$file" ;;
+          llvm-strip --strip-all-gnu $STRIP_SHARED "$file" ;;
         application/x-archive\;*)        # Libraries (.a)
-          strip --strip-all-gnu $STRIP_STATIC "$file" ;;
+          llvm-strip --strip-all-gnu $STRIP_STATIC "$file" ;;
         application/x-executable\;*)     # Binaries
-          strip --strip-all-gnu $STRIP_BINARIES "$file" ;;
+          llvm-strip --strip-all-gnu $STRIP_BINARIES "$file" ;;
         application/x-pie-executable\;*) # Relocatable binaries
-          strip --strip-all-gnu $STRIP_SHARED "$file" ;;
+          llvm-strip --strip-all-gnu $STRIP_SHARED "$file" ;;
       esac
     elif [[ "$_compiler_name" =~ gcc ]]; then
       case "$(file -Sib "$file")" in
