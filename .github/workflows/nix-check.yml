@@ -1,12 +1,12 @@
-name: build kernel with Nix
+name: validate nix expression
 on:
   pull_request:
-    branches:
-      - main
+    branches: ["main"]
 
 
 jobs:
   validate-nix-expression:
+    name: validate nix expression
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
