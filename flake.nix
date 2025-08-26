@@ -20,9 +20,7 @@
       pkgs = nixpkgs.legacyPackages.x86_64-linux;
       tktUtils = pkgs.callPackage ./tkt-utils.nix { };
       inherit (tktUtils) mkTKTForKernels;
-    in
-    {
-      packages.x86_64-linux =
+    tktPackages  =
         with pkgs;
         mkTKTForKernels [
           linux_6_15
@@ -31,6 +29,14 @@
           linux_6_12
           linux_6_6
         ];
+            kernels  = pkgs.lib.filterAttrs (name: value:  pkgs.lib.strings.match "linux_.*" name != null ) tktPackages;
+            linuxPackages = pkgs.lib.filterAttrs (name: value:  pkgs.lib.strings.match "linuxPackages.*" name != null ) tktPackages;
+
+        in
+    {
+
+    packages.x86_64-linux =  kernels;
+    inherit linuxPackages;
     };
 
 }
