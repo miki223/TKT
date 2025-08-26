@@ -19,7 +19,8 @@ jobs:
       _cpusched: ${{ inputs._cpusched }}
       compiler: ${{ inputs.compiler }}
 
-    runs-on: ghcr.io/the-kernel-toolkit/tkt-ubuntu-dev:latest
+    runs-on: ubuntu-latest
+    container: ghcr.io/the-kernel-toolkit/tkt-ubuntu-dev:latest
 
     steps:
       - name: Checkout TKT
