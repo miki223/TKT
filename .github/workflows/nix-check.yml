@@ -1,7 +1,9 @@
-name: validate nix expression
+name: validate nix-
 on:
+  workflow_dispatch:
   pull_request:
-    branches: ["main"]
+    branches:
+      - main
 
 
 jobs:
