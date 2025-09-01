@@ -6,8 +6,18 @@ body {
   padding: 0 1rem;
 }
 
-header h1 {
-  text-align: center;
+header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+.logo {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
 }
 
 pre {
