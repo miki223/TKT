@@ -15,25 +15,69 @@
       <h1>The Kernel Toolkit</h1>
     </header>
     <main>
-      <h2>TKT Documentation</h2>
-      <p>This is where TKT development will be documented.</p>
-      <p>
-        If you are using Arch Linux, you can compile the kernel
-        with the following command:
-      </p>
-      <pre><code><span class="no-select grey">$ </span>makepkg -si</code></pre>
-
-      <p>
-        For any other distributions, the recommended way is by using
-        the <code>install.sh</code> script as such:
-      </p>
-      <pre><code><span class="no-select grey">$ </span>bash install.sh install</code></pre>
-
-      <p>
-        For more information, check out the
-        <a href="https://github.com/The-Kernel-Toolkit/TKT/blob/main/docs/COMPILATION_GUIDELINE.md">compilation guideline</a>.
-      </p>
+      <section>
+        <h2>Releases</h2>
+        <div id="kernel-select">
+          <label>
+            select version:
+            <select id="select-version">
+              <option>all</option>
+            </select>
+          </label>
+          <label>
+            select distribution:
+            <select id="select-distro">
+              <option>all</option>
+            </select>
+          </label>
+          <label>
+            select scheduler:
+            <select id="select-scheduler">
+              <option>all</option>
+            </select>
+          </label>
+          <label>
+            select compiler:
+            <select id="select-compiler">
+              <option>all</option>
+            </select>
+          </label>
+        </div>
+        <table id="releases-table"></table>
+      </section>
+      <section>
+        <h2>TKT Documentation</h2>
+        <p>This is where TKT development will be documented.</p>
+        <p>
+          If you are using Arch Linux, you can compile the kernel
+          with the following command:
+        </p>
+        <pre><code><span class="no-select grey">$ </span>makepkg -si</code></pre>
+        <p>
+          For any other distributions, the recommended way is by using
+          the <code>install.sh</code> script as such:
+        </p>
+        <pre><code><span class="no-select grey">$ </span>bash install.sh install</code></pre>
+        <p>
+          For more information, check out the
+          <a href="https://github.com/The-Kernel-Toolkit/TKT/blob/main/docs/COMPILATION_GUIDELINE.md">compilation guideline</a>.
+        </p>
+      </section>
     </main>
     <script src="copy_button.js"></script>
+    <script type="module">
+      import { cachedFetch, getFiles, populateTable } from './releases.js';
+
+      const OWNER = 'The-Kernel-Toolkit';
+      const REPO = 'TKT';
+
+      const url = `https://api.github.com/repos/${OWNER}/${REPO}/releases`;
+      const releases = await cachedFetch(url, 'kernelReleases');
+      releases.sort((a, b) => (new Date(b.published_at)) - (new Date(a.published_at)));
+
+      const fileList = getFiles(releases);
+
+      populateTable(document.querySelector('#releases-table'), fileList);
+    </script>
   </body>
 </html>
