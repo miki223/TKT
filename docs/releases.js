@@ -9,6 +9,25 @@ HTMLTableRowElement.prototype.insertHeader = function insertHeader() {
   return tableHeader;
 }
 
+class File {
+  constructor(data) {
+    this.name = data.name;
+    this.size = new FileSize(data.size);
+    this.updatedAt = new Date(data.updatedAt);
+    this.digest = data.digest;
+    this.url = data.url;
+    this.version = data.version;
+
+    const [distro, _, scheduler, compiler] = data.name
+      .replace('-diet', '')
+      .split(/-|\./);
+
+    Object.defineProperty(this, 'distro', { value: distro.toLowerCase() });
+    Object.defineProperty(this, 'scheduler', { value: scheduler });
+    Object.defineProperty(this, 'compiler', { value: compiler });
+  }
+}
+
 class FileSize {
   constructor(bytes) {
     if (!Number.isFinite(bytes) || bytes < 0) {
@@ -119,6 +138,51 @@ export function getFiles(releases) {
   const selectScheduler = document.getElementById('select-scheduler');
   const selectCompiler = document.getElementById('select-compiler');
 
+  let chosenVersion = 'all';
+  let chosenDistro = 'all';
+  let chosenScheduler = 'all';
+  let chosenCompiler = 'all';
+
+  const updateFiles = function(tableElement, fileList) {
+    const newFiles = fileList
+      .filter(({ version }) => {
+        return version === chosenVersion || chosenVersion === 'all';
+      })
+      .filter(({ distro }) => {
+        return distro === chosenDistro || chosenDistro === 'all';
+      })
+      .filter(({ scheduler }) => {
+        return scheduler === chosenScheduler || chosenScheduler === 'all';
+      })
+      .filter(({ compiler }) => {
+        return compiler === chosenCompiler || chosenCompiler === 'all';
+      });
+
+    populateTable(tableElement, newFiles);
+  };
+
+  const tableElement = document.querySelector('#releases-table');
+
+  selectVersion.addEventListener('change', ({ target }) => {
+    chosenVersion = target.value;
+    updateFiles(tableElement, files);
+  });
+
+  selectDistro.addEventListener('change', ({ target }) => {
+    chosenDistro = target.value;
+    updateFiles(tableElement, files);
+  });
+
+  selectScheduler.addEventListener('change', ({ target }) => {
+    chosenScheduler = target.value;
+    updateFiles(tableElement, files);
+  });
+
+  selectCompiler.addEventListener('change', ({ target }) => {
+    chosenCompiler = target.value;
+    updateFiles(tableElement, files);
+  });
+
   releases.forEach(({ name, tag_name, assets }) => {
     const option = document.createElement('option');
     option.innerText = name;
@@ -149,13 +213,14 @@ export function getFiles(releases) {
       if (!selectCompiler.hasOption(compiler))
         selectCompiler.appendChild(compilerOption);
 
-      files.push({
+      files.push(new File({
         name,
-        size: new FileSize(size),
-        updatedAt: new Date(updated_at),
+        size,
+        updatedAt: updated_at,
         digest,
         url: browser_download_url,
-      });
+        version: tag_name,
+      }));
     });
   });
 
@@ -163,14 +228,25 @@ export function getFiles(releases) {
 }
 
 export function populateTable(tableElement, fileList) {
-  tableElement.createTHead();
-  const headerRow = document.createElement('tr');
-  tableElement.tHead.appendChild(headerRow);
+  if (!tableElement.tHead) {
+    tableElement.createTHead();
+    const headerRow = document.createElement('tr');
+    tableElement.tHead.appendChild(headerRow);
 
-  headerRow.insertHeader().innerText = 'name';
-  headerRow.insertHeader().innerText = 'size';
-  headerRow.insertHeader().innerText = 'last updated';
-  headerRow.insertHeader().innerText = 'sha256';
+    headerRow.insertHeader().innerText = 'name';
+    headerRow.insertHeader().innerText = 'size';
+    headerRow.insertHeader().innerText = 'last updated';
+    headerRow.insertHeader().innerText = 'sha256';
+  }
+
+  for (let i = tableElement.tBodies.length - 1; i >= 0; i--) {
+    const tBody = tableElement.tBodies[i];
+    for (let j = tBody.children.length - 1; j >= 0; j--) {
+      const row = tBody.children[j];
+      tBody.removeChild(row);
+    }
+    tableElement.removeChild(tBody);
+  }
 
   const tBody = tableElement.createTBody();
   for (let i = 0, n = fileList.length; i < n; i++) {
