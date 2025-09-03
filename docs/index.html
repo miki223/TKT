@@ -20,9 +20,7 @@
         <div id="kernel-select">
           <label>
             select version:
-            <select id="select-version">
-              <option>all</option>
-            </select>
+            <select id="select-version"></select>
           </label>
           <label>
             select distribution:
@@ -66,7 +64,12 @@
     </main>
     <script src="copy_button.js"></script>
     <script type="module">
-      import { cachedFetch, getFiles, populateTable } from './releases.js';
+      import {
+        cachedFetch,
+        populateTable,
+        getFilesFromReleases,
+        TableFilter,
+      } from './releases.js';
 
       const OWNER = 'The-Kernel-Toolkit';
       const REPO = 'TKT';
@@ -74,10 +77,17 @@
       const url = `https://api.github.com/repos/${OWNER}/${REPO}/releases`;
       const releases = await cachedFetch(url, 'kernelReleases');
       releases.sort((a, b) => (new Date(b.published_at)) - (new Date(a.published_at)));
+      const fileList = getFilesFromReleases(releases);
 
-      const fileList = getFiles(releases);
+      const tableElement = document.getElementById('releases-table');
+      const selectElements = {
+        selectVersion: document.getElementById('select-version'),
+        selectDistro: document.getElementById('select-distro'),
+        selectScheduler: document.getElementById('select-scheduler'),
+        selectCompiler: document.getElementById('select-compiler'),
+      };
 
-      populateTable(document.querySelector('#releases-table'), fileList);
+      new TableFilter(fileList, tableElement, selectElements, populateTable);
     </script>
   </body>
 </html>

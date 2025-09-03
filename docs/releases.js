@@ -1,8 +1,3 @@
-HTMLSelectElement.prototype.hasOption = function hasOption(targetValue) {
-    const children = Array.from(this.children);
-    return children.some(({ value }) => value === targetValue);
-}
-
 HTMLTableRowElement.prototype.insertHeader = function insertHeader() {
   const tableHeader = document.createElement('th');
   this.appendChild(tableHeader);
@@ -17,14 +12,16 @@ class File {
     this.digest = data.digest;
     this.url = data.url;
     this.version = data.version;
+    this.tag = data.tag;
 
     const [distro, _, scheduler, compiler] = data.name
       .replace('-diet', '')
       .split(/-|\./);
 
-    Object.defineProperty(this, 'distro', { value: distro.toLowerCase() });
+    Object.defineProperty(this, 'distro', { value: distro });
     Object.defineProperty(this, 'scheduler', { value: scheduler });
     Object.defineProperty(this, 'compiler', { value: compiler });
+    Object.freeze(this);
   }
 }
 
@@ -113,6 +110,128 @@ function timeAgo(date) {
   return fullYears === 1 ? '1 year ago' : `${fullYears} years ago`;
 }
 
+export class TableFilter {
+  constructor(fileList, tableElement, selectElements, populateTable) {
+    this.files = fileList;
+    this.table = tableElement;
+    this.populateTable = populateTable;
+
+    // Select elements
+    this.selectVersion   = selectElements.selectVersion;
+    this.selectDistro    = selectElements.selectDistro;
+    this.selectScheduler = selectElements.selectScheduler;
+    this.selectCompiler  = selectElements.selectCompiler;
+
+    // Initial filter state
+    this.chosenTag       = fileList[0]?.tag ?? 'all';
+    this.chosenDistro    = 'all';
+    this.chosenScheduler = 'all';
+    this.chosenCompiler  = 'all';
+
+    this.populateSelectElements();
+    this.bindEvents();
+    this.updateFiles(); // render first pass
+  }
+
+  bindEvents() {
+    this.selectVersion.addEventListener('change', ({ target }) => {
+      this.chosenTag = target.value;
+      this.updateFiles();
+    });
+    this.selectDistro.addEventListener('change', ({ target }) => {
+      this.chosenDistro = target.value;
+      this.updateFiles();
+    });
+    this.selectScheduler.addEventListener('change', ({ target }) => {
+      this.chosenScheduler = target.value;
+      this.updateFiles();
+    });
+    this.selectCompiler.addEventListener('change', ({ target }) => {
+      this.chosenCompiler = target.value;
+      this.updateFiles();
+    });
+  }
+
+  populateSelectElements() {
+    const versions = new Map();
+    const distros = new Set();
+    const schedulers = new Set();
+    const compilers = new Set();
+
+    for (let i = 0, n = this.files.length; i < n; i++) {
+      const file = this.files[i];
+      versions.set(file.tag, file.version);
+      distros.add(file.distro);
+      schedulers.add(file.scheduler);
+      compilers.add(file.compiler);
+    }
+
+    for (const [tag, version] of versions) {
+      const versionOption = document.createElement('option');
+      versionOption.innerText = version;
+      versionOption.value = tag;
+      this.selectVersion.appendChild(versionOption);
+    }
+
+    for (const distro of distros) {
+      const distroOption = document.createElement('option');
+      distroOption.innerText = distro;
+      distroOption.value = distro.toLowerCase();
+      this.selectDistro.appendChild(distroOption);
+    }
+
+    for (const scheduler of schedulers) {
+      const schedulerOption = document.createElement('option');
+      schedulerOption.innerText = scheduler;
+      schedulerOption.value = scheduler;
+      this.selectScheduler.appendChild(schedulerOption);
+    }
+
+    for (const compiler of compilers) {
+      const compilerOption = document.createElement('option');
+      compilerOption.innerText = compiler;
+      compilerOption.value = compiler;
+      this.selectCompiler.appendChild(compilerOption);
+    }
+  }
+
+  updateFiles() {
+    const filtered = this.files.filter(this.chooseFile);
+
+    this.populateTable(this.table, filtered);
+  }
+
+  /*
+   * Arrow function is needed in order to not create a
+   * new scope for 'this'.
+   */
+  chooseFile = (file) => {
+    return this.chooseTag(file.tag) &&
+      this.chooseDistro(file.distro) &&
+      this.chooseScheduler(file.scheduler) &&
+      this.chooseCompiler(file.compiler);
+  }
+
+  chooseTag(tag) {
+    return tag === this.chosenTag;
+  }
+
+  chooseDistro(distro) {
+    return distro.toLowerCase() === this.chosenDistro ||
+      this.chosenDistro === 'all';
+  }
+
+  chooseScheduler(scheduler) {
+    return scheduler === this.chosenScheduler ||
+      this.chosenScheduler === 'all';
+  }
+
+  chooseCompiler(compiler) {
+    return compiler === this.chosenCompiler ||
+      this.chosenCompiler === 'all';
+  }
+}
+
 export async function cachedFetch(url, key, ttl = 3600) { // ttl in seconds
   const now = Date.now();
   const cached = localStorage.getItem(key);
@@ -130,88 +249,16 @@ export async function cachedFetch(url, key, ttl = 3600) { // ttl in seconds
   return data;
 }
 
-export function getFiles(releases) {
+export function getFilesFromReleases(releases) {
   const files = [];
 
-  const selectVersion = document.getElementById('select-version');
-  const selectDistro = document.getElementById('select-distro');
-  const selectScheduler = document.getElementById('select-scheduler');
-  const selectCompiler = document.getElementById('select-compiler');
-
-  let chosenVersion = 'all';
-  let chosenDistro = 'all';
-  let chosenScheduler = 'all';
-  let chosenCompiler = 'all';
-
-  const updateFiles = function(tableElement, fileList) {
-    const newFiles = fileList
-      .filter(({ version }) => {
-        return version === chosenVersion || chosenVersion === 'all';
-      })
-      .filter(({ distro }) => {
-        return distro === chosenDistro || chosenDistro === 'all';
-      })
-      .filter(({ scheduler }) => {
-        return scheduler === chosenScheduler || chosenScheduler === 'all';
-      })
-      .filter(({ compiler }) => {
-        return compiler === chosenCompiler || chosenCompiler === 'all';
-      });
-
-    populateTable(tableElement, newFiles);
-  };
-
-  const tableElement = document.querySelector('#releases-table');
-
-  selectVersion.addEventListener('change', ({ target }) => {
-    chosenVersion = target.value;
-    updateFiles(tableElement, files);
-  });
-
-  selectDistro.addEventListener('change', ({ target }) => {
-    chosenDistro = target.value;
-    updateFiles(tableElement, files);
-  });
-
-  selectScheduler.addEventListener('change', ({ target }) => {
-    chosenScheduler = target.value;
-    updateFiles(tableElement, files);
-  });
-
-  selectCompiler.addEventListener('change', ({ target }) => {
-    chosenCompiler = target.value;
-    updateFiles(tableElement, files);
-  });
-
-  releases.forEach(({ name, tag_name, assets }) => {
-    const option = document.createElement('option');
-    option.innerText = name;
-    option.value = tag_name;
-    selectVersion.appendChild(option);
-
-    assets.forEach((asset) => {
-      const { name, size, updated_at, digest, browser_download_url } = asset;
+  for (let i = 0, n = releases.length; i < n; i++) {
+    const { name: version, tag_name, assets } = releases[i];
+    for (let j = 0, m = assets.length; j < m; j++) {
+      const { name, size, updated_at, digest, browser_download_url } = assets[j];
       const [distro, _, scheduler, compiler] = name
         .replace('-diet', '')
         .split(/-|\./);
-      const distroOption = document.createElement('option');
-      const schedulerOption = document.createElement('option');
-      const compilerOption = document.createElement('option');
-
-      distroOption.text = distro;
-      distroOption.value = distro.toLowerCase();
-      if (!selectDistro.hasOption(distro.toLowerCase()))
-        selectDistro.appendChild(distroOption);
-
-      schedulerOption.innerText = scheduler;
-      schedulerOption.value = scheduler;
-      if (!selectScheduler.hasOption(scheduler))
-        selectScheduler.appendChild(schedulerOption);
-
-      compilerOption.innerText = compiler;
-      compilerOption.value = compiler;
-      if (!selectCompiler.hasOption(compiler))
-        selectCompiler.appendChild(compilerOption);
 
       files.push(new File({
         name,
@@ -219,10 +266,11 @@ export function getFiles(releases) {
         updatedAt: updated_at,
         digest,
         url: browser_download_url,
-        version: tag_name,
+        version,
+        tag: tag_name,
       }));
-    });
-  });
+    }
+  }
 
   return files;
 }
