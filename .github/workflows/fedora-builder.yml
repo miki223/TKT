@@ -31,6 +31,8 @@ jobs:
           _cpusched: ${{ inputs._cpusched }}
           compiler: ${{ inputs.compiler }}
         run: |
+          sed -i 's/^_compiler=".*"/_compiler="${{ inputs.compiler }}"/' customization.cfg
+          sed -i 's/^_cpusched=".*"/_cpusched="${{ inputs._cpusched }}"/' customization.cfg
           git config --global --add safe.directory "$(pwd)"
           if [ "${{ inputs.compiler }}" = "llvm" ] || [ "${{ inputs.compiler }}" = "clang" ]; then
             export KCFLAGS="$KCFLAGS -Wno-error -Wno-unused-command-line-argument"
