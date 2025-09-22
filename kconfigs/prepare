@@ -1850,7 +1850,7 @@ exit_cleanup() {
   rm -f "$_where"minimal_modprobed.db
 
   # Remove state tracker
-  #rm -f "$_where"/TKT_CONFIG
+  rm -f "$_where"/TKT_CONFIG
 
   # Remove ntsync rules file
   rm -f "$_where"/ntsync.rules

@@ -13,7 +13,6 @@ on:
 env:
   _distro: "Slackware"
   _IS_GHCI: "true"
-  _compiler: "${{ inputs.compiler }}"
 
 jobs:
   build-kernel:

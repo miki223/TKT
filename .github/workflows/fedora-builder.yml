@@ -12,7 +12,6 @@ on:
 env:
   _distro: "Fedora"
   _IS_GHCI: "true"
-  _compiler: "${{ inputs.compiler }}"
 
 jobs:
   build-kernel:
