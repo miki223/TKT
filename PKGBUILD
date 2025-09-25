@@ -432,7 +432,7 @@ hackheaders() {
   if [ "$_STRIP" = "true" ]; then
     if [[ "$_compiler_name" =~ llvm ]]; then
       echo "Stripping vmlinux..."
-      strip --strip-all-gnu $STRIP_STATIC "$builddir/vmlinux"
+      llvm-strip --strip-all-gnu $STRIP_STATIC "$builddir/vmlinux"
     elif [[ "$_compiler_name" =~ gcc ]]; then
       echo "Stripping vmlinux..."
       strip --strip-all $STRIP_STATIC "$builddir/vmlinux"

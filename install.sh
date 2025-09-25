@@ -422,6 +422,16 @@ main() {
       _move_artifacts "deb"
       _winesync_copy
 
+  if [ "$_STRIP" = "true" ]; then
+    if [[ "$_compiler_name" =~ llvm ]]; then
+      echo "Stripping vmlinux..."
+      llvm-strip --strip-all-gnu $STRIP_STATIC "$builddir/vmlinux"
+    elif [[ "$_compiler_name" =~ gcc ]]; then
+      echo "Stripping vmlinux..."
+      strip --strip-all $STRIP_STATIC "$builddir/vmlinux"
+    fi
+  fi
+
       if _confirm_install; then
         sudo dpkg -i "$_where/${_kernelname}"/*.deb
       fi
@@ -442,6 +452,16 @@ main() {
       msg2 "Build done"
       _move_artifacts "rpm"
       _winesync_copy
+
+  if [ "$_STRIP" = "true" ]; then
+    if [[ "$_compiler_name" =~ llvm ]]; then
+      echo "Stripping vmlinux..."
+      llvm-strip --strip-all-gnu $STRIP_STATIC "$builddir/vmlinux"
+    elif [[ "$_compiler_name" =~ gcc ]]; then
+      echo "Stripping vmlinux..."
+      strip --strip-all $STRIP_STATIC "$builddir/vmlinux"
+    fi
+  fi
 
       if _confirm_install; then
         if [ "$_distro" = "Fedora" ]; then
@@ -464,8 +484,13 @@ main() {
       _winesync_copy
 
       if [ "$_STRIP" = "true" ]; then
-        echo "Stripping vmlinux..."
-        strip -v $STRIP_STATIC "vmlinux" || echo "strip failed"
+        if [[ "$_compiler_name" =~ llvm ]]; then
+          echo "Stripping vmlinux..."
+          llvm-strip --strip-all-gnu $STRIP_STATIC "$builddir/vmlinux"
+        elif [[ "$_compiler_name" =~ gcc ]]; then
+          echo "Stripping vmlinux..."
+          strip --strip-all $STRIP_STATIC "$builddir/vmlinux"
+        fi
       fi
 
       PKGROOT="$_where/${_kernelname}"
@@ -617,8 +642,13 @@ EOF
       _winesync_copy
 
       if [ "$_STRIP" = "true" ]; then
-        echo "Stripping vmlinux..."
-        strip -v $STRIP_STATIC "vmlinux" || echo "strip failed"
+        if [[ "$_compiler_name" =~ llvm ]]; then
+          echo "Stripping vmlinux..."
+          llvm-strip --strip-all-gnu $STRIP_STATIC "$builddir/vmlinux"
+        elif [[ "$_compiler_name" =~ gcc ]]; then
+          echo "Stripping vmlinux..."
+          strip --strip-all $STRIP_STATIC "$builddir/vmlinux"
+        fi
       fi
 
       _pkgname="kernel-${_kernel_flavor}"
@@ -722,8 +752,13 @@ EOF
       msg2 "Build successful"
 
       if [ "$_STRIP" = "true" ]; then
-        echo "Stripping vmlinux..."
-        strip -v $STRIP_STATIC "vmlinux"
+        if [[ "$_compiler_name" =~ llvm ]]; then
+          echo "Stripping vmlinux..."
+          llvm-strip --strip-all-gnu $STRIP_STATIC "$builddir/vmlinux"
+        elif [[ "$_compiler_name" =~ gcc ]]; then
+          echo "Stripping vmlinux..."
+          strip --strip-all $STRIP_STATIC "$builddir/vmlinux"
+        fi
       fi
 
       _headers_folder_name="linux-$_kernel_flavor"
