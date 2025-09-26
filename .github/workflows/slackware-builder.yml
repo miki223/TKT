@@ -32,11 +32,10 @@ jobs:
           _cpusched: ${{ inputs._cpusched }}
           compiler: ${{ inputs.compiler }}
         run: |
-          source /etc/environment
+          sed -i 's/^_compiler=".*"/_compiler="${{ inputs.compiler }}"/' /GHCI.cfg
+          sed -i 's/^_cpusched=".*"/_cpusched="${{ inputs._cpusched }}"/' /GHCI.cfg
           git config --global --add safe.directory "$(pwd)"
           git config --global http.sslCAInfo /etc/ssl/certs/ca-certificates.crt
-          sed -i 's/^_distro=".*"/_distro="Slackware"/' customization.cfg
-          sed -i 's/^_compiler=".*"/_compiler="${{ inputs.compiler }}"/' customization.cfg
           yes '' | bash ./install.sh install || true
 
       - uses: actions/upload-artifact@v4

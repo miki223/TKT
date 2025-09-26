@@ -400,7 +400,7 @@ hackheaders() {
   msg2 "Stripping build tools..."
   local file
   while read -rd '' file; do
-    if [[ "$_compiler_name" =~ llvm ]]; then
+    if [[ "$_compiler_name" =~ llvm ]] || [[ "$_compiler_name" =~ clang ]]; then
       case "$(file -Sib "$file")" in
         application/x-sharedlib\;*)      # Libraries (.so)
           llvm-strip --strip-all-gnu $STRIP_SHARED "$file" ;;
@@ -432,7 +432,7 @@ hackheaders() {
   if [ "$_STRIP" = "true" ]; then
     if [[ "$_compiler_name" =~ llvm ]]; then
       echo "Stripping vmlinux..."
-      strip --strip-all-gnu $STRIP_STATIC "$builddir/vmlinux"
+      llvm-strip --strip-all-gnu $STRIP_STATIC "$builddir/vmlinux"
     elif [[ "$_compiler_name" =~ gcc ]]; then
       echo "Stripping vmlinux..."
       strip --strip-all $STRIP_STATIC "$builddir/vmlinux"
