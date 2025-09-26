@@ -23,7 +23,6 @@
     tktPackages  =
         with pkgs;
         mkTKTForKernels [
-          linux_6_15
           linux_6_16
           linux_6_1
           linux_6_12
