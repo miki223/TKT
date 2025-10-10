@@ -31,14 +31,14 @@ jobs:
           _cpusched: ${{ inputs._cpusched }}
           compiler: ${{ inputs.compiler }}
         run: |
+          sed -i 's/^_compiler=".*"/_compiler="${{ inputs.compiler }}"/' /GHCI.cfg
+          sed -i 's/^_cpusched=".*"/_cpusched="${{ inputs._cpusched }}"/' /GHCI.cfg
           git config --global --add safe.directory "$(pwd)"
           if [ "${{ inputs.compiler }}" = "llvm" ] || [ "${{ inputs.compiler }}" = "clang" ]; then
             export KCFLAGS="$KCFLAGS -Wno-error -Wno-unused-command-line-argument"
           fi
-          sed -i 's/^_distro=".*"/_distro="Suse"/' customization.cfg
-          sed -i 's/^_compiler=".*"/_compiler="${{ inputs.compiler }}"/' customization.cfg
           set +o pipefail
-          _distro="Suse" _compiler="${{ inputs.compiler }}" yes '' | ./install.sh install || true
+          yes '' | ./install.sh install || true
           set -o pipefail
 
       - name: Package RPM files
