@@ -39,15 +39,15 @@ diff --git a/fs/dcache.c b/fs/dcache.c
 index 361ea7ab30ea..0c5cf69b241a 100644
 --- a/fs/dcache.c
 +++ b/fs/dcache.c
-@@ -71,7 +71,7 @@
+@@ -73,7 +73,7 @@
   * If no ancestor relationship:
   * arbitrary, since it's serialized on rename_lock
   */
 -static int sysctl_vfs_cache_pressure __read_mostly = 100;
 +static int sysctl_vfs_cache_pressure __read_mostly = 50;
+ static int sysctl_vfs_cache_pressure_denom __read_mostly = 100;
  
  unsigned long vfs_pressure_ratio(unsigned long val)
- {
 -- 
 2.28.0
 
@@ -380,29 +380,26 @@ diff --git a/block/elevator.c b/block/elevator.c
 index 4eab3d70e880..79669aa39d79 100644
 --- a/block/elevator.c
 +++ b/block/elevator.c
-@@ -623,19 +623,19 @@ static inline bool elv_support_iosched(struct request_queue *q)
- }
- 
- /*
-- * For single queue devices, default to using mq-deadline. If we have multiple
-- * queues or mq-deadline is not available, default to "none".
-+ * For single queue devices, default to using bfq. If we have multiple
-+ * queues or bfq is not available, default to "none".
-  */
- static struct elevator_type *elevator_get_default(struct request_queue *q)
+@@ -715,7 +715,7 @@  */
+ void elevator_set_default(struct request_queue *q)
  {
- 	if (q->tag_set->flags & BLK_MQ_F_NO_SCHED_BY_DEFAULT)
- 		return NULL;
-
- 	if (q->nr_hw_queues != 1 &&
- 	    !blk_mq_is_shared_tags(q->tag_set->flags))
- 		return NULL;
+ 	struct elv_change_ctx ctx = {
+-		.name = "mq-deadline",
++		.name = "bfq",
+ 		.no_uevent = true,
+ 	};
+ 	int err = 0;
+@@ -728,8 +728,8 @@ void elevator_set_default(struct request_queue *q)
+ 		return;
  
--	return elevator_find_get("mq-deadline");
-+	return elevator_find_get("bfq");
- }
- 
- /*
+ 	/*
+-	 * For single queue devices, default to using mq-deadline. If we
+-	 * have multiple queues or mq-deadline is not available, default
++	 * For single queue devices, default to using bfq. If we
++	 * have multiple queues or bfq is not available, default
+	 * to "none".
+	 */
+	if (elevator_find_get(ctx.name) && (q->nr_hw_queues == 1 ||
 -- 
 2.28.0
 
@@ -600,52 +597,6 @@ index 95f90699d2b17b..2b10fe29d2c8d9 100644
 -	kvfree(client);
  	return error;
  }
-
-
-From 2aafb56f20e4b63d8c4af172fe9d017c64bc4129 Mon Sep 17 00:00:00 2001
-From: Sultan Alsawaf <sultan@kerneltoast.com>
-Date: Wed, 20 Oct 2021 20:50:11 -0700
-Subject: [PATCH] ZEN: mm: Lower the non-hugetlbpage pageblock size to reduce
- scheduling delays
-
-The page allocator processes free pages in groups of pageblocks, where
-the size of a pageblock is typically quite large (1024 pages without
-hugetlbpage support). Pageblocks are processed atomically with the zone
-lock held, which can cause severe scheduling delays on both the CPU
-going through the pageblock and any other CPUs waiting to acquire the
-zone lock. A frequent offender is move_freepages_block(), which is used
-by rmqueue() for page allocation.
-
-As it turns out, there's no requirement for pageblocks to be so large,
-so the pageblock order can simply be reduced to ease the scheduling
-delays and zone lock contention. PAGE_ALLOC_COSTLY_ORDER is used as a
-reasonable setting to ensure non-costly page allocation requests can
-still be serviced without always needing to free up more than one
-pageblock's worth of pages at a time.
-
-This has a noticeable effect on overall system latency when memory
-pressure is elevated. The various mm functions which operate on
-pageblocks no longer appear in the preemptoff tracer, where previously
-they would spend up to 100 ms on a mobile arm64 CPU processing a
-pageblock with preemption disabled and the zone lock held.
-
-Signed-off-by: Sultan Alsawaf <sultan@kerneltoast.com>
----
- include/linux/pageblock-flags.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/linux/pageblock-flags.h b/include/linux/pageblock-flags.h
-index 5f1ae07d724b88..97cda629c9e909 100644
---- a/include/linux/pageblock-flags.h
-+++ b/include/linux/pageblock-flags.h
-@@ -48,7 +48,7 @@ extern unsigned int pageblock_order;
- #else /* CONFIG_HUGETLB_PAGE */
-
- /* If huge pages are not used, group by MAX_ORDER_NR_PAGES */
--#define pageblock_order		MAX_PAGE_ORDER
-+#define pageblock_order		PAGE_ALLOC_COSTLY_ORDER
-
- #endif /* CONFIG_HUGETLB_PAGE */
 
 
 From f997578464b2c4c63e7bd1afbfef56212ee44f2d Mon Sep 17 00:00:00 2001
