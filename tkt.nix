@@ -8,7 +8,7 @@
   kernelPatches ? [ ],
   randstructSeed ? "",
   withBore ? true,
-  minimal-modules ? true,
+  minimal-modules ? false,
 }:
 
 let
