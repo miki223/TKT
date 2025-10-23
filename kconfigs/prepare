@@ -533,21 +533,6 @@ _tkg_initscript() {
     exit 1
   fi
 
-  local _deprecated_config_vars=(
-    "_use_tmpfs"
-    "_source_in_tmpfs"
-    "_tmpfs_path"
-    "_x86_64_isalvl"
-  )
-
-  for _deprecated_var in "${_deprecated_config_vars[@]}"; do
-    if [ -n "${!_deprecated_var}" ]; then
-      warning "The deprecated config var $_deprecated_var has been set"
-      warning "Please check the latest customization.cfg file to see what replaces it"
-      exit 1
-    fi
-  done
-
   # Default to Arch
   if [ -z "$_distro" ] || [ "$_ispkgbuild" = "true" ]; then
     msg2 "Defaulting to Archlinux target\n"
@@ -1847,10 +1832,10 @@ exit_cleanup() {
   rm -f "$_where"/*.hook
   rm -f "$_where"/cleanup
   rm -f "$_where"/prepare
-  rm -f "$_where"minimal_modprobed.db
+  rm -f "$_where"/minimal_modprobed.db
 
   # Remove state tracker
-  rm -f "$_where"/TKT_CONFIG
+  mv -f "$_where"/TKT_CONFIG "$_where"/logs/TKT_CONFIG.log
 
   # Remove ntsync rules file
   rm -f "$_where"/ntsync.rules

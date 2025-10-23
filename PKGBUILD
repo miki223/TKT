@@ -160,20 +160,16 @@ build() {
   cd "$_kernel_work_folder_abs"
 
   # Use user specified compiler path if set
-  if [[ "$_compiler_name" =~ llvm ]] && [ -n "${CUSTOM_LLVM_PATH}" ]; then
-    PATH="${CUSTOM_LLVM_PATH}/bin:${CUSTOM_LLVM_PATH}/lib:${CUSTOM_LLVM_PATH}/include:${PATH}"
-  fi
-  if [[ "$_compiler_name" =~ gcc ]] && [ -n "${CUSTOM_GCC_PATH}" ]; then
-    PATH="${CUSTOM_GCC_PATH}/bin:${CUSTOM_GCC_PATH}/lib:${CUSTOM_GCC_PATH}/include:${PATH}"
-  fi
-
-  # Guard Clause: Exit early if the compiler is not supported
-  if [[ ! "$_compiler_name" =~ (llvm|gcc) ]]; then
-    msg2 "Fatal error: Unsupported compiler '${_compiler_name}'. Bailing out."
+  if [[ "$_compiler" =~ llvm ]] && [ -n "${CUSTOM_LLVM_PATH}" ]; then
+      _compiler_path="${CUSTOM_LLVM_PATH}/bin:${PATH}"
+  elif [[ "$_compiler" =~ gcc ]] && [ -n "${CUSTOM_GCC_PATH}" ]; then
+      _compiler_path="${CUSTOM_GCC_PATH}/bin:${PATH}"
+  elif [[ ! "$_compiler" =~ (llvm|gcc) ]]; then
+    msg2 "Fatal error: Unsupported compiler '${_compiler}'. Bailing out."
     exit 1
   fi
 
-  # SUGGESTION: Renamed variable for clarity and used modern command substitution
+  # Compute make jobs argument
   local _make_jobs_arg
   if [ "$_force_all_threads" = "true" ]; then
     _make_jobs_arg="-j$(nproc)"
@@ -195,7 +191,6 @@ build() {
   # remove -O2 flag and place user optimization flag
   CFLAGS=${CFLAGS/-O2/}
   CFLAGS+=" ${_compileropt}"
-  export KCPPFLAGS KCFLAGS
 
   if pacman -Qq schedtool &> /dev/null; then
     msg2 "Using schedtool to set scheduling policy for the build."
@@ -209,15 +204,15 @@ build() {
   local diet_target=""
 
   if [[ "$_modprobeddb" == "true" || "$_kernel_on_diet" == "true" ]]; then
-    msg2 "Building modprobed/diet kernel with ${_compiler_name^^}..."
+    msg2 "Building modprobed/diet kernel with ${_compiler^^}..."
     diet_args="LMC_KEEP=false LMC_FILE=='${_modprobeddb_db_path}'"
     diet_target="localmodconfig"
   else
-    msg2 "Building generic kernel with ${_compiler_name^^}..."
+    msg2 "Building generic kernel with ${_compiler^^}..."
   fi
 
   {
-    time (env ${compiler_opt} make "${_make_jobs_arg}" ${diet_args} ${diet_target} bzImage modules)
+    time (env ${compiler_opt} make "${_make_jobs_arg}" ${diet_args} ${diet_target})
   } 3>&1 1>&2 2>&3
 }
 
@@ -266,7 +261,7 @@ hackbase() {
 
   # Install cleanup pacman hook and script
   sed -e "s|cleanup|${pkgbase}-cleanup|g" "${srcdir}"/90-cleanup.hook |
-    install -Dm644 /dev/stdin "${pkgdir}/usr/share/libalpm/hooks/90-${pkgbase}.hook"
+  install -Dm644 /dev/stdin "${pkgdir}/usr/share/libalpm/hooks/90-${pkgbase}.hook"
   install -Dm755 "${srcdir}"/cleanup "${pkgdir}/usr/share/libalpm/scripts/${pkgbase}-cleanup"
 
   # Install customization file, for reference
@@ -283,53 +278,6 @@ hackbase() {
   if [ -e "${srcdir}/ntsync.rules" ]; then
     msg2 "Installing udev rule for ntsync"
     install -Dm644 "${srcdir}"/ntsync.rules "${pkgdir}/etc/udev/rules.d/ntsync.rules"
-  fi
-}
-
-_ukify() {
-  # Check if the installed kernel is a UKI and update mkinitcpio preset
-  msg2 "Checking if the installed kernel is a Unified Kernel Image (UKI)..."
-  if _is_uki "$modulesdir/vmlinuz"; then
-    msg2 "Unified Kernel Image detected, updating mkinitcpio preset..."
-
-    # Create or update the mkinitcpio preset file
-    local preset_file="${pkgdir}/etc/mkinitcpio.d/${pkgbase}.preset"
-    mkdir -p "${pkgdir}/etc/mkinitcpio.d"
-
-    # Write a UKI-compatible preset
-    cat > "$preset_file" <<EOF
-# mkinitcpio preset file for ${pkgbase} (UKI configuration)
-
-ALL_config="/etc/mkinitcpio.conf"
-ALL_kver="${_kernver}"
-PRESETS=('default')
-
-default_image="/boot/${pkgbase}.efi"
-default_uki="/boot/${pkgbase}.efi"
-default_options="--splash /usr/share/systemd/bootctl/splash-arch.bmp"
-EOF
-
-    msg2 "Updated mkinitcpio preset file at ${preset_file} for UKI"
-  else
-    msg2 "No Unified Kernel Image detected, using standard preset configuration..."
-
-    # Create a standard preset file (if needed)
-    local preset_file="${pkgdir}/etc/mkinitcpio.d/${pkgbase}.preset"
-    mkdir -p "${pkgdir}/etc/mkinitcpio.d"
-
-    cat > "$preset_file" <<EOF
-# mkinitcpio preset file for ${pkgbase}
-
-ALL_config="/etc/mkinitcpio.conf"
-ALL_kver="${_kernver}"
-PRESETS=('default')
-
-default_image="/boot/vmlinuz-${pkgbase}"
-default_initramfs="/boot/initramfs-${pkgbase}.img"
-default_options=""
-EOF
-
-    msg2 "Created standard mkinitcpio preset file at ${preset_file}"
   fi
 }
 
@@ -400,7 +348,7 @@ hackheaders() {
   msg2 "Stripping build tools..."
   local file
   while read -rd '' file; do
-    if [[ "$_compiler_name" =~ llvm ]] || [[ "$_compiler_name" =~ clang ]]; then
+    if [[ "$_compiler" =~ llvm ]]; then
       case "$(file -Sib "$file")" in
         application/x-sharedlib\;*)      # Libraries (.so)
           llvm-strip --strip-all-gnu $STRIP_SHARED "$file" ;;
@@ -411,7 +359,7 @@ hackheaders() {
         application/x-pie-executable\;*) # Relocatable binaries
           llvm-strip --strip-all-gnu $STRIP_SHARED "$file" ;;
       esac
-    elif [[ "$_compiler_name" =~ gcc ]]; then
+    elif [[ "$_compiler" =~ gcc ]]; then
       case "$(file -Sib "$file")" in
         application/x-sharedlib\;*)      # Libraries (.so)
           strip --strip-all $STRIP_SHARED "$file" ;;
@@ -430,10 +378,10 @@ hackheaders() {
   ln -sr "$builddir" "$pkgdir/usr/src/$pkgbase"
 
   if [ "$_STRIP" = "true" ]; then
-    if [[ "$_compiler_name" =~ llvm ]]; then
+    if [[ "$_compiler" =~ llvm ]]; then
       echo "Stripping vmlinux..."
       llvm-strip --strip-all-gnu $STRIP_STATIC "$builddir/vmlinux"
-    elif [[ "$_compiler_name" =~ gcc ]]; then
+    elif [[ "$_compiler" =~ gcc ]]; then
       echo "Stripping vmlinux..."
       strip --strip-all $STRIP_STATIC "$builddir/vmlinux"
     fi
@@ -444,6 +392,50 @@ hackheaders() {
   fi
 }
 
+_mkinitcpio() {
+  source "$_where"/TKT_CONFIG
+
+    msg2 "Preparing mkinitcpio preset for ${pkgbase}..."
+
+    local preset_file="${pkgdir}/etc/mkinitcpio.d/${pkgbase}.preset"
+    mkdir -p "${pkgdir}/etc/mkinitcpio.d"
+
+    # Backup existing preset
+    if [[ -f "$preset_file" ]]; then
+        mv -f "$preset_file" "${preset_file}.bak"
+        msg2 "Existing preset backed up to ${preset_file}.bak"
+    fi
+
+    if [[ "${_ukify}" == "true" ]]; then
+        cat > "$preset_file" <<EOF
+# mkinitcpio preset file for ${pkgbase} (UKI configuration)
+
+ALL_config="/etc/mkinitcpio.conf"
+ALL_kver="${_kernver}"
+PRESETS=('default')
+
+default_image="/boot/vmlinuz-${pkgbase}"
+default_initramfs="/boot/initramfs-${pkgbase}.img"
+default_uki="/efi/${pkgbase}.efi"
+default_options=""
+EOF
+        msg2 "Created UKI-aware mkinitcpio preset at ${preset_file}"
+    else
+        cat > "$preset_file" <<EOF
+# mkinitcpio preset file for ${pkgbase}
+
+ALL_config="/etc/mkinitcpio.conf"
+ALL_kver="${_kernver}"
+PRESETS=('default')
+
+default_image="/boot/vmlinuz-${pkgbase}"
+default_initramfs="/boot/initramfs-${pkgbase}.img"
+default_options=""
+EOF
+        msg2 "Created standard mkinitcpio preset at ${preset_file}"
+    fi
+}
+
 source /dev/stdin <<EOF
 package_${pkgbase}() {
 hackbase
@@ -452,4 +444,5 @@ hackbase
 package_${pkgbase}-headers() {
 hackheaders
 }
+_mkinitcpio
 EOF
