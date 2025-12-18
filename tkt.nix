@@ -52,6 +52,10 @@ let
           patch = "${patchdir}/0009-prjc.patch";
         }
       ];
+  clear-patches = if lib.versionOlder  kversionNoPatch "6.18" then [{
+      name = "clear-patches";
+      patch = "${patchdir}/0002-clear-patches.patch";
+    }] else [];
 
 in
 
@@ -74,10 +78,7 @@ linuxManualConfig {
       patch = "${patchdir}/0001-add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER-by.patch";
     }
 
-    {
-      name = "clear-patches";
-      patch = "${patchdir}/0002-clear-patches.patch";
-    }
+
     {
       name = "glitched-base";
       patch = "${patchdir}/0003-glitched-base.patch";
@@ -100,7 +101,8 @@ linuxManualConfig {
     }
 
   ]
-  ++ scheduler;
+  ++ scheduler
+  ++ clear-patches;
 
   modDirVersion = "${lib.versions.pad 3 linux.version}-tkt-${compiler.name}_${compiler.version}";
   extraMeta = with lib; {

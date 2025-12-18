@@ -23,11 +23,10 @@
     tktPackages  =
         with pkgs;
         mkTKTForKernels [
-          linux_6_16
           linux_6_1
           linux_6_12
           linux_6_6
-          linux_6_17
+          linux_6_18
         ];
 
             kernels  = pkgs.lib.filterAttrs (name: value:  pkgs.lib.strings.match "linux_.*" name != null ) tktPackages;
