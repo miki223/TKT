@@ -17,10 +17,13 @@ let
         "linux_${_major_minor_ersion}-tkt" = mkTKT {
           linux = kernel;
           inherit stdenv;
+          minimal-modules = true;
         };
         "linux_${_major_minor_ersion}-tkt_clang" = mkTKT {
           linux = kernel;
           stdenv = clangStdenv;
+          minimal-modules = true;
+
         };
 
       };
