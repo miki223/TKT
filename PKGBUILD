@@ -444,5 +444,9 @@ hackbase
 package_${pkgbase}-headers() {
 hackheaders
 }
-_mkinitcpio
+
+if [ "$_ukify" = "true" ]; then
+  _mkinitcpio
+fi
+
 EOF
