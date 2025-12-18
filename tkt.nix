@@ -9,10 +9,13 @@
   randstructSeed ? "",
   withBore ? true,
   minimal-modules ? false,
-}:
+  overrideInStdenv,
+  lzop
+
+  }:
 
 let
-
+  tktStdenv = overrideInStdenv stdenv [lzop];
   kversionNoPatch = lib.versions.majorMinor linux.version;
   ksources =
     with lib.fileset;
@@ -64,7 +67,7 @@ linuxManualConfig {
   allowImportFromDerivation = true;
   configfile = "${ksources}/kconfigs/${kversionNoPatch}/config.x86_64";
   inherit (linux) src;
-  inherit stdenv;
+  stdenv = tktStdenv;
   extraMakeFlags = [
     "LOCALVERSION=-tkt-${compiler.name}_${compiler.version}"
   ]
