@@ -22,14 +22,11 @@ elif [[ "$_compiler_name" =~ gcc ]]; then
   makedepends+=(gcc)
 fi
 optdepends=('schedtool')
-options=('!strip')
-
- # track basedir as different Arch based distros are moving srcdir around
+options=('!strip' 'buildflags' 'makeflags' '!emptydirs' '!docs')
 _where="$PWD"
 
 # Create logs dir if it does not already exist
 [ -d "$_where/logs" ] || mkdir -p "$_where/logs"
-
 
 if [ -n "$FAKEROOTKEY" ]; then
   echo "Sourcing 'TKT_CONFIG' file"
@@ -56,87 +53,9 @@ else
   fi
   declare -p -x >> "$_where"/TKT_CONFIG
   echo -e "_ispkgbuild=\"true\"\n_distro=\"Arch\"\n_where=\"$PWD\"" >> "$_where"/TKT_CONFIG
-  # Run user prompts here
   source "$_where"/TKT_CONFIG
   source "$_where"/kconfigs/prepare
   _tkg_initscript
-fi
-
-prepare() {
-  source "$_where"/TKT_CONFIG
-  source "$_where"/kconfigs/prepare
-  rm -rf $pkgdir # Nuke the entire pkg folder so it'll get regenerated clean on next build
-  ln -s "${_kernel_work_folder_abs}" "${srcdir}/linux-src-git"
-  _tkg_srcprep
-}
-
-source "$_where"/TKT_CONFIG
-
-if [ -z "$_kernel_localversion" ]; then
-    # Set the kernel name TKT style
-    _diet_tag=""
-    _modprobed_tag=""
-    _rt_tag=""
-    _compiler_name=""
-
-    [ "$_kernel_on_diet" = "true" ] && _diet_tag="diet"
-    [ "$_modprobeddb" = "true" ] && _modprobed_tag="modprobed"
-    [ "$_preempt_rt" = "1" ] && _rt_tag="rt"
-
-    if [ "$_compiler" = "llvm" ]; then
-      _compiler_name="-llvm"
-      _package_compiler="llvm"
-    else
-      _compiler_name="-gcc"
-      _package_compiler="gcc"
-    fi
-
-    # Start parts array
-    parts=( "tkt" )
-
-    # Append distro to kernel name
-    shopt -s nocasematch
-    parts+=( "$(echo "$_distro" | tr '[:upper:]' '[:lower:]')" )
-    shopt -u nocasematch
-
-    # Append tags to kernel name as needed
-    [ -n "$_diet_tag" ] && parts+=( "$_diet_tag" )
-    [ -n "$_modprobed_tag" ] && parts+=( "$_modprobed_tag" )
-    parts+=( "$_cpusched" )
-    [ -n "$_rt_tag" ] && parts+=( "$_rt_tag" )
-    parts+=( "$_package_compiler" )
-
-    _kernel_flavor=$(IFS=- ; echo "${parts[*]}")
-    {
-      echo "_diet_tag=$_diet_tag"
-      echo "_modprobed_tag=$_modprobed_tag"
-      echo "_rt_tag=$_rt_tag"
-      echo "_compiler_name=$_package_compiler"
-      echo "_cpusched=$_cpusched"
-      echo "_kernel_flavor=$_kernel_flavor"
-    } >> "$_where/TKT_CONFIG"
-else
-    _kernel_flavor="tkt-${_kernel_localversion}"
-fi
-
-# Setup kernel_subver variable
-if [[ "$_sub" = rc* ]]; then
-    # if an RC version, subver will always be 0
-    _kernel_subver=0
-else
-    _kernel_subver="${_sub}"
-fi
-
-# Generate kernel name with the required information
-_kernelname="${_basekernel}.${_sub}-${_kernel_flavor}"
-echo "_kernelname=$_kernelname" >> "$_where/TKT_CONFIG"
-
-if [ -n "$_custom_pkgbase" ]; then
-    pkgbase="${_custom_pkgbase}"
-    echo "pkgbase=$pkgbase" >> "$_where/TKT_CONFIG"
-else
-    pkgbase="linux-${_kernelname}"
-    echo "pkgbase=$pkgbase" >> "$_where/TKT_CONFIG"
 fi
 
 source "$_where"/TKT_CONFIG
@@ -155,21 +74,17 @@ export KBUILD_BUILD_HOST=archlinux
 export KBUILD_BUILD_USER=$pkgbase
 export KBUILD_BUILD_TIMESTAMP="$(date -Ru${SOURCE_DATE_EPOCH:+d @$SOURCE_DATE_EPOCH})"
 
+prepare() {
+  source "$_where"/TKT_CONFIG
+  source "$_where"/kconfigs/prepare
+  rm -rf $pkgdir # Nuke the entire pkg folder so it'll get regenerated clean on next build
+  ln -s "${_kernel_work_folder_abs}" "${srcdir}/linux-src-git"
+  _tkg_srcprep
+}
+
 build() {
   source "$_where"/TKT_CONFIG
   cd "$_kernel_work_folder_abs"
-
-  # -------------------------
-  # Compiler path handling
-  # -------------------------
-  if [[ "$_compiler" =~ llvm ]] && [ -n "${CUSTOM_LLVM_PATH}" ]; then
-      _compiler_path="${CUSTOM_LLVM_PATH}/bin:${PATH}"
-  elif [[ "$_compiler" =~ gcc ]] && [ -n "${CUSTOM_GCC_PATH}" ]; then
-      _compiler_path="${CUSTOM_GCC_PATH}/bin:${PATH}"
-  elif [[ ! "$_compiler" =~ (llvm|gcc) ]]; then
-    msg2 "Fatal error: Unsupported compiler '${_compiler}'. Bailing out."
-    exit 1
-  fi
 
   # -------------------------
   # Job scheduling
@@ -178,7 +93,7 @@ build() {
   if [ "$_force_all_threads" = "true" ]; then
     _make_jobs_arg="-j$(nproc)"
   else
-    _make_jobs_arg="${MAKEFLAGS}"
+    _make_jobs_arg="-j$(( $(nproc) / 2 ))"
   fi
 
   # -------------------------
@@ -274,6 +189,7 @@ build() {
   # -------------------------
   # Final build
   # -------------------------
+  msg2 "Starting kernel compile..."
   {
     time (env ${compiler_opt} make "${_make_jobs_arg}" ${diet_args} ${diet_target})
   } 3>&1 1>&2 2>&3
@@ -457,20 +373,17 @@ hackheaders() {
 
 _mkinitcpio() {
   source "$_where"/TKT_CONFIG
-
-    msg2 "Preparing mkinitcpio preset for ${pkgbase}..."
-
-    local preset_file="${pkgdir}/etc/mkinitcpio.d/${pkgbase}.preset"
-    mkdir -p "${pkgdir}/etc/mkinitcpio.d"
-
-    # Backup existing preset
-    if [[ -f "$preset_file" ]]; then
-        mv -f "$preset_file" "${preset_file}.bak"
-        msg2 "Existing preset backed up to ${preset_file}.bak"
-    fi
-
     if [[ "${_ukify}" == "true" ]]; then
-        cat > "$preset_file" <<EOF
+      msg2 "Preparing mkinitcpio preset for ${pkgbase}..."
+
+      local preset_file="/etc/mkinitcpio.d/${pkgbase}.preset"
+      mkdir -p "${pkgdir}/etc/mkinitcpio.d"
+      # Backup existing preset
+      if [[ -f "$preset_file" ]]; then
+          cp "$preset_file" "${preset_file}.bak"
+          msg2 "Existing preset backed up to ${preset_file}.bak"
+      fi
+      cat > "$preset_file" <<EOF
 # mkinitcpio preset file for ${pkgbase} (UKI configuration)
 
 ALL_config="/etc/mkinitcpio.conf"

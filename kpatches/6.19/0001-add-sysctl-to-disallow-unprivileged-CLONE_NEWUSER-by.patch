@@ -66,17 +66,17 @@ diff --git a/kernel/fork.c b/kernel/fork.c
 index 08969f5aa38d59..ff601cb7a1fae0 100644
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
-@@ -98,6 +98,10 @@
- #include <linux/io_uring.h>
- #include <linux/bpf.h>
+@@ -108,6 +108,10 @@
+ #include <linux/pgalloc.h>
+ #include <linux/uaccess.h>
 
 +#ifdef CONFIG_USER_NS
 +#include <linux/user_namespace.h>
 +#endif
 +
- #include <asm/pgalloc.h>
- #include <linux/uaccess.h>
  #include <asm/mmu_context.h>
+ #include <asm/cacheflush.h>
+ #include <asm/tlbflush.h>
 @@ -2008,6 +2012,10 @@ static __latent_entropy struct task_struct *copy_process(
  	if ((clone_flags & (CLONE_NEWUSER|CLONE_FS)) == (CLONE_NEWUSER|CLONE_FS))
  		return ERR_PTR(-EINVAL);
@@ -105,20 +105,20 @@ diff --git a/kernel/sysctl.c b/kernel/sysctl.c
 index c6d9dec11b749d..9a4514ad481b21 100644
 --- a/kernel/sysctl.c
 +++ b/kernel/sysctl.c
-@@ -81,6 +81,9 @@
- #ifdef CONFIG_RT_MUTEXES
- #include <linux/rtmutex.h>
- #endif
+@@ -22,6 +22,9 @@
+ 
+ #include <linux/uaccess.h>
+ #include <asm/processor.h>
 +#ifdef CONFIG_USER_NS
 +#include <linux/user_namespace.h>
 +#endif
 
  /* shared constants to be used in various sysctls */
  const int sysctl_vals[] = { 0, 1, 2, 3, 4, 100, 200, 1000, 3000, INT_MAX, 65535, -1 };
-@@ -1659,6 +1662,15 @@ static struct ctl_table kern_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
- 	},
+@@ -1455,6 +1455,15 @@ int proc_do_static_key(const struct ctl_table *table, int write,
+ }
+ 
+ static const struct ctl_table sysctl_subsys_table[] = {
 +#ifdef CONFIG_USER_NS
 +	{
 +		.procname	= "unprivileged_userns_clone",
@@ -130,7 +130,7 @@ index c6d9dec11b749d..9a4514ad481b21 100644
 +#endif
  #ifdef CONFIG_PROC_SYSCTL
  	{
- 		.procname	= "tainted",
+ 		.procname	= "sysctl_writes_strict",
 diff --git a/kernel/user_namespace.c b/kernel/user_namespace.c
 index 54211dbd516c57..16ca0c1516298d 100644
 --- a/kernel/user_namespace.c
@@ -146,6 +146,6 @@ index 54211dbd516c57..16ca0c1516298d 100644
 +int unprivileged_userns_clone;
 +#endif
 +
- static struct kmem_cache *user_ns_cachep __read_mostly;
+ static struct kmem_cache *user_ns_cachep __ro_after_init;
  static DEFINE_MUTEX(userns_state_mutex);
 

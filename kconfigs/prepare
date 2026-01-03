@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # List of kernels that are maintained upstream, this will only ever be RC, mainline, and the latest LTS.
-_current_kernels=("6.18" "6.17" "6.12")
+_current_kernels=("6.19" "6.18" "6.17" "6.12")
 
 typeset -Ag _all_scheds=(
   ["pds"]="Project C's Priority and Deadline based Skiplist multiple queue scheduler (PDS)"
@@ -48,8 +48,8 @@ _git_remote_names=( "${!_kernel_git_remotes[@]}" )
 
 # fill with Torvalds Linux repo link if empty
 if [[ -z "$_git_mirror" ]]; then
-  msg2 "using the only proper Linux source tree, Linus Torvalds"
-  _git_mirror="${_kernel_git_remotes['torvalds']}"
+  msg2 "using the gregkh repo"
+  _git_mirror="${_kernel_git_remotes['gregkh']}"
 fi
 
 # if alias, get actual link from map _kernel_git_remotes
@@ -348,6 +348,7 @@ _set_cpu_scheduler() {
 }
 
 _set_compiler(){
+  source "$_where"/TKT_CONFIG
   if ! [[ "$_compiler" =~ ^(gcc|llvm)$ ]]; then
     if [ -n "$_compiler" ] && [ "$_nofallback" = "true" ]; then
       msg2 "Compiler \"$_compiler\" not recognized, exiting..."
@@ -360,6 +361,7 @@ _set_compiler(){
       _default_index="0"
       _prompt_from_array "${_compiler_array_text[@]}"
       _compiler="${_compiler_array[$_selected_index]}"
+      echo "_compiler${_compiler_array[$_selected_index]}=" >> "${_where}/TKT_CONFIG"
     fi
   fi
 
@@ -619,8 +621,8 @@ _tkg_initscript() {
 
   _set_cpu_scheduler
 
-  cp "$_where"/kpatches/${_basekernel}/* "$_where" # copy patches inside the PKGBUILD's dir to preserve makepkg sourcing and md5sum checking
-  cp "$_where"/kconfigs/${_basekernel}/* "$_where" # copy config files and hooks inside the PKGBUILD's dir to preserve makepkg sourcing and md5sum checking
+  cp "$_where"/kpatches/${_basekernel}/* "$_where"
+  cp "$_where"/kconfigs/${_basekernel}/* "$_where"
 
   _set_compiler
 
