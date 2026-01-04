@@ -22,14 +22,11 @@ elif [[ "$_compiler_name" =~ gcc ]]; then
   makedepends+=(gcc)
 fi
 optdepends=('schedtool')
-options=('!strip')
-
- # track basedir as different Arch based distros are moving srcdir around
+options=('!strip' 'buildflags' 'makeflags' '!emptydirs' '!docs')
 _where="$PWD"
 
 # Create logs dir if it does not already exist
 [ -d "$_where/logs" ] || mkdir -p "$_where/logs"
-
 
 if [ -n "$FAKEROOTKEY" ]; then
   echo "Sourcing 'TKT_CONFIG' file"
@@ -56,87 +53,9 @@ else
   fi
   declare -p -x >> "$_where"/TKT_CONFIG
   echo -e "_ispkgbuild=\"true\"\n_distro=\"Arch\"\n_where=\"$PWD\"" >> "$_where"/TKT_CONFIG
-  # Run user prompts here
   source "$_where"/TKT_CONFIG
   source "$_where"/kconfigs/prepare
   _tkg_initscript
-fi
-
-prepare() {
-  source "$_where"/TKT_CONFIG
-  source "$_where"/kconfigs/prepare
-  rm -rf $pkgdir # Nuke the entire pkg folder so it'll get regenerated clean on next build
-  ln -s "${_kernel_work_folder_abs}" "${srcdir}/linux-src-git"
-  _tkg_srcprep
-}
-
-source "$_where"/TKT_CONFIG
-
-if [ -z "$_kernel_localversion" ]; then
-    # Set the kernel name TKT style
-    _diet_tag=""
-    _modprobed_tag=""
-    _rt_tag=""
-    _compiler_name=""
-
-    [ "$_kernel_on_diet" = "true" ] && _diet_tag="diet"
-    [ "$_modprobeddb" = "true" ] && _modprobed_tag="modprobed"
-    [ "$_preempt_rt" = "1" ] && _rt_tag="rt"
-
-    if [ "$_compiler" = "llvm" ]; then
-      _compiler_name="-llvm"
-      _package_compiler="llvm"
-    else
-      _compiler_name="-gcc"
-      _package_compiler="gcc"
-    fi
-
-    # Start parts array
-    parts=( "tkt" )
-
-    # Append distro to kernel name
-    shopt -s nocasematch
-    parts+=( "$(echo "$_distro" | tr '[:upper:]' '[:lower:]')" )
-    shopt -u nocasematch
-
-    # Append tags to kernel name as needed
-    [ -n "$_diet_tag" ] && parts+=( "$_diet_tag" )
-    [ -n "$_modprobed_tag" ] && parts+=( "$_modprobed_tag" )
-    parts+=( "$_cpusched" )
-    [ -n "$_rt_tag" ] && parts+=( "$_rt_tag" )
-    parts+=( "$_package_compiler" )
-
-    _kernel_flavor=$(IFS=- ; echo "${parts[*]}")
-    {
-      echo "_diet_tag=$_diet_tag"
-      echo "_modprobed_tag=$_modprobed_tag"
-      echo "_rt_tag=$_rt_tag"
-      echo "_compiler_name=$_package_compiler"
-      echo "_cpusched=$_cpusched"
-      echo "_kernel_flavor=$_kernel_flavor"
-    } >> "$_where/TKT_CONFIG"
-else
-    _kernel_flavor="tkt-${_kernel_localversion}"
-fi
-
-# Setup kernel_subver variable
-if [[ "$_sub" = rc* ]]; then
-    # if an RC version, subver will always be 0
-    _kernel_subver=0
-else
-    _kernel_subver="${_sub}"
-fi
-
-# Generate kernel name with the required information
-_kernelname="${_basekernel}.${_sub}-${_kernel_flavor}"
-echo "_kernelname=$_kernelname" >> "$_where/TKT_CONFIG"
-
-if [ -n "$_custom_pkgbase" ]; then
-    pkgbase="${_custom_pkgbase}"
-    echo "pkgbase=$pkgbase" >> "$_where/TKT_CONFIG"
-else
-    pkgbase="linux-${_kernelname}"
-    echo "pkgbase=$pkgbase" >> "$_where/TKT_CONFIG"
 fi
 
 source "$_where"/TKT_CONFIG
@@ -155,29 +74,31 @@ export KBUILD_BUILD_HOST=archlinux
 export KBUILD_BUILD_USER=$pkgbase
 export KBUILD_BUILD_TIMESTAMP="$(date -Ru${SOURCE_DATE_EPOCH:+d @$SOURCE_DATE_EPOCH})"
 
+prepare() {
+  source "$_where"/TKT_CONFIG
+  source "$_where"/kconfigs/prepare
+  rm -rf $pkgdir # Nuke the entire pkg folder so it'll get regenerated clean on next build
+  ln -s "${_kernel_work_folder_abs}" "${srcdir}/linux-src-git"
+  _tkg_srcprep
+}
+
 build() {
   source "$_where"/TKT_CONFIG
   cd "$_kernel_work_folder_abs"
 
-  # Use user specified compiler path if set
-  if [[ "$_compiler" =~ llvm ]] && [ -n "${CUSTOM_LLVM_PATH}" ]; then
-      _compiler_path="${CUSTOM_LLVM_PATH}/bin:${PATH}"
-  elif [[ "$_compiler" =~ gcc ]] && [ -n "${CUSTOM_GCC_PATH}" ]; then
-      _compiler_path="${CUSTOM_GCC_PATH}/bin:${PATH}"
-  elif [[ ! "$_compiler" =~ (llvm|gcc) ]]; then
-    msg2 "Fatal error: Unsupported compiler '${_compiler}'. Bailing out."
-    exit 1
-  fi
-
-  # Compute make jobs argument
+  # -------------------------
+  # Job scheduling
+  # -------------------------
   local _make_jobs_arg
   if [ "$_force_all_threads" = "true" ]; then
     _make_jobs_arg="-j$(nproc)"
   else
-    _make_jobs_arg="${MAKEFLAGS}"
+    _make_jobs_arg="-j$(( $(nproc) / 2 ))"
   fi
 
+  # -------------------------
   # ccache
+  # -------------------------
   if [ "$_noccache" != "true" ] && pacman -Qq ccache &> /dev/null; then
     export PATH="/usr/lib/ccache/bin/:$PATH"
     export CCACHE_SLOPPINESS="file_macro,locale,time_macros"
@@ -185,13 +106,65 @@ build() {
     msg2 'ccache was found and will be used'
   fi
 
-  # document the TKT variables
+  # -------------------------
+  # Document TKT variables
+  # -------------------------
   declare -p | cut -d ' ' -f 3 | grep -P '^_(?!=|EXT_CONFIG_PATH|where|path)' > "${srcdir}/customization-full.cfg"
 
-  # remove -O2 flag and place user optimization flag
+  # -------------------------
+  # Optimization flags
+  # -------------------------
   CFLAGS=${CFLAGS/-O2/}
   CFLAGS+=" ${_compileropt}"
 
+  # -------------------------
+  # Propeller + PGO + AutoAFDO
+  # -------------------------
+
+  # Base LLVM flags container
+  export LLVM_FLAGS=""
+  export LDFLAGS+=""
+
+  # --- Profile Generation Mode ---
+  if [[ "$_pgo_generate" == "true" ]]; then
+      msg2 "Kernel build in **PGO generation** mode"
+      export LLVM_PROFDIR="${srcdir}/pgo-profiles"
+      mkdir -p "$LLVM_PROFDIR"
+      LLVM_FLAGS+=" -fprofile-generate=${LLVM_PROFDIR}"
+  fi
+
+  # --- Profile Use Mode ---
+  if [[ "$_pgo_use" == "true" ]]; then
+      msg2 "Kernel build in **PGO USE** mode"
+      LLVM_FLAGS+=" -fprofile-use=${_pgo_profile_path} -fprofile-correction"
+  fi
+
+  # --- AutoFDO / AutoFDR ---
+  if [[ "$_auto_afdo" == "true" ]]; then
+      msg2 "Enabling **AutoFDO / AutoFDR**"
+      LLVM_FLAGS+=" -fauto-profile=${_auto_fdo_profile}"
+  fi
+
+  # --- Propeller: instrumentation ---
+  if [[ "$_propeller_generate" == "true" ]]; then
+      msg2 "Building with **Propeller instrumentation**"
+      LLVM_FLAGS+=" -Wl,--emit-relocs -Wl,-z,notext"
+  fi
+
+  # --- Propeller: optimized layout ---
+  if [[ "$_propeller_use" == "true" ]]; then
+      msg2 "Applying **Propeller optimized layout**"
+      LDFLAGS+=" -Wl,--propeller=${_propeller_profile}"
+  fi
+
+  # Inject flags into build env
+  export KCFLAGS+="$LLVM_FLAGS"
+  export KCPPFLAGS+="$LLVM_FLAGS"
+  export LDFLAGS
+
+  # -------------------------
+  # schedtool niceness
+  # -------------------------
   if pacman -Qq schedtool &> /dev/null; then
     msg2 "Using schedtool to set scheduling policy for the build."
     local _pid="$$"
@@ -199,7 +172,9 @@ build() {
     command ionice -n 1 -p "$_pid" || :
   fi
 
-  # --- Build execution ---
+  # -------------------------
+  # Diet / modprobed kernel
+  # -------------------------
   local diet_args=""
   local diet_target=""
 
@@ -211,6 +186,10 @@ build() {
     msg2 "Building generic kernel with ${_compiler^^}..."
   fi
 
+  # -------------------------
+  # Final build
+  # -------------------------
+  msg2 "Starting kernel compile..."
   {
     time (env ${compiler_opt} make "${_make_jobs_arg}" ${diet_args} ${diet_target})
   } 3>&1 1>&2 2>&3
@@ -394,20 +373,17 @@ hackheaders() {
 
 _mkinitcpio() {
   source "$_where"/TKT_CONFIG
-
-    msg2 "Preparing mkinitcpio preset for ${pkgbase}..."
-
-    local preset_file="${pkgdir}/etc/mkinitcpio.d/${pkgbase}.preset"
-    mkdir -p "${pkgdir}/etc/mkinitcpio.d"
-
-    # Backup existing preset
-    if [[ -f "$preset_file" ]]; then
-        mv -f "$preset_file" "${preset_file}.bak"
-        msg2 "Existing preset backed up to ${preset_file}.bak"
-    fi
-
     if [[ "${_ukify}" == "true" ]]; then
-        cat > "$preset_file" <<EOF
+      msg2 "Preparing mkinitcpio preset for ${pkgbase}..."
+
+      local preset_file="/etc/mkinitcpio.d/${pkgbase}.preset"
+      mkdir -p "${pkgdir}/etc/mkinitcpio.d"
+      # Backup existing preset
+      if [[ -f "$preset_file" ]]; then
+          cp "$preset_file" "${preset_file}.bak"
+          msg2 "Existing preset backed up to ${preset_file}.bak"
+      fi
+      cat > "$preset_file" <<EOF
 # mkinitcpio preset file for ${pkgbase} (UKI configuration)
 
 ALL_config="/etc/mkinitcpio.conf"
