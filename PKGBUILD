@@ -377,10 +377,10 @@ _mkinitcpio() {
       msg2 "Preparing mkinitcpio preset for ${pkgbase}..."
 
       local preset_file="/etc/mkinitcpio.d/${pkgbase}.preset"
-      mkdir -p "${pkgdir}/etc/mkinitcpio.d"
+      sudo mkdir -p "${pkgdir}/etc/mkinitcpio.d"
       # Backup existing preset
       if [[ -f "$preset_file" ]]; then
-          cp "$preset_file" "${preset_file}.bak"
+          sudo cp "$preset_file" "${preset_file}.bak"
           msg2 "Existing preset backed up to ${preset_file}.bak"
       fi
       cat > "$preset_file" <<EOF
