@@ -27,6 +27,7 @@
           linux_6_12
           linux_6_6
           linux_6_18
+          linux_6_19
         ];
 
             kernels  = pkgs.lib.filterAttrs (name: value:  pkgs.lib.strings.match "linux_.*" name != null ) tktPackages;
