@@ -12,10 +12,10 @@ pkgdesc='A customized Linux kernel install script, forked from the TKG script, a
 arch=('x86_64') # no i686 in here
 url="https://www.kernel.org/"
 license=('GPL2')
-makedepends=(base-devel bc bison coreutils cpio docbook-xsl flex git \
-graphviz imagemagick inetutils initramfs kmod libelf pahole \
-patchutils perl python-sphinx python-sphinx_rtd_theme schedtool sudo \
-tar wget xmlto xz)
+makedepends=(base-devel bc bison coreutils cpio docbook-xsl flex git
+  graphviz imagemagick inetutils initramfs kmod libelf pahole
+  patchutils perl python-sphinx python-sphinx_rtd_theme schedtool sudo
+  tar wget xmlto xz)
 if [[ "$_compiler_name" =~ llvm ]]; then
   makedepends+=(llvm clang lld)
 elif [[ "$_compiler_name" =~ gcc ]]; then
@@ -42,17 +42,17 @@ else
 
     # extract _EXT_CONFIG_PATH from customization.cfg only if not GHCI
     if [[ -z "$_EXT_CONFIG_PATH" ]]; then
-      eval `grep _EXT_CONFIG_PATH "$_where"/customization.cfg`
+      eval $(grep _EXT_CONFIG_PATH "$_where"/customization.cfg)
     fi
 
     # Only append external config if path exists
     if [ -f "$_EXT_CONFIG_PATH" ]; then
       msg2 "External configuration file $_EXT_CONFIG_PATH will be used and will override customization.cfg values."
-      cat "$_EXT_CONFIG_PATH" >> "$_where"/TKT_CONFIG
+      cat "$_EXT_CONFIG_PATH" >>"$_where"/TKT_CONFIG
     fi
   fi
-  declare -p -x >> "$_where"/TKT_CONFIG
-  echo -e "_ispkgbuild=\"true\"\n_distro=\"Arch\"\n_where=\"$PWD\"" >> "$_where"/TKT_CONFIG
+  declare -p -x >>"$_where"/TKT_CONFIG
+  echo -e "_ispkgbuild=\"true\"\n_distro=\"Arch\"\n_where=\"$PWD\"" >>"$_where"/TKT_CONFIG
   source "$_where"/TKT_CONFIG
   source "$_where"/kconfigs/prepare
   _tkg_initscript
@@ -66,8 +66,8 @@ pkgver="${_basekernel}"."${_sub}"
 pkgrel=1
 
 for f in "$_where"/kconfigs/"$_basekernel"/* "$_where"/kpatches/"$_basekernel"/*; do
-  source+=( "$f" )
-  sha256sums+=( "SKIP" )
+  source+=("$f")
+  sha256sums+=("SKIP")
 done
 
 export KBUILD_BUILD_HOST=archlinux
@@ -93,13 +93,13 @@ build() {
   if [ "$_force_all_threads" = "true" ]; then
     _make_jobs_arg="-j$(nproc)"
   else
-    _make_jobs_arg="-j$(( $(nproc) / 2 ))"
+    _make_jobs_arg="-j$(($(nproc) / 2))"
   fi
 
   # -------------------------
   # ccache
   # -------------------------
-  if [ "$_noccache" != "true" ] && pacman -Qq ccache &> /dev/null; then
+  if [ "$_noccache" != "true" ] && pacman -Qq ccache &>/dev/null; then
     export PATH="/usr/lib/ccache/bin/:$PATH"
     export CCACHE_SLOPPINESS="file_macro,locale,time_macros"
     export CCACHE_NOHASHDIR="true"
@@ -109,13 +109,12 @@ build() {
   # -------------------------
   # Document TKT variables
   # -------------------------
-  declare -p | cut -d ' ' -f 3 | grep -P '^_(?!=|EXT_CONFIG_PATH|where|path)' > "${srcdir}/customization-full.cfg"
+  declare -p | cut -d ' ' -f 3 | grep -P '^_(?!=|EXT_CONFIG_PATH|where|path)' >"${srcdir}/customization-full.cfg"
 
   # -------------------------
   # Optimization flags
   # -------------------------
   CFLAGS=${CFLAGS/-O2/}
-  CFLAGS+=" ${_compileropt}"
 
   # -------------------------
   # Propeller + PGO + AutoAFDO
@@ -123,38 +122,38 @@ build() {
 
   # Base LLVM flags container
   export LLVM_FLAGS=""
-  export LDFLAGS+=""
+  export LDFLAGS=""
 
   # --- Profile Generation Mode ---
   if [[ "$_pgo_generate" == "true" ]]; then
-      msg2 "Kernel build in **PGO generation** mode"
-      export LLVM_PROFDIR="${srcdir}/pgo-profiles"
-      mkdir -p "$LLVM_PROFDIR"
-      LLVM_FLAGS+=" -fprofile-generate=${LLVM_PROFDIR}"
+    msg2 "Kernel build in **PGO generation** mode"
+    export LLVM_PROFDIR="${srcdir}/pgo-profiles"
+    mkdir -p "$LLVM_PROFDIR"
+    LLVM_FLAGS+=" -fprofile-generate=${LLVM_PROFDIR}"
   fi
 
   # --- Profile Use Mode ---
   if [[ "$_pgo_use" == "true" ]]; then
-      msg2 "Kernel build in **PGO USE** mode"
-      LLVM_FLAGS+=" -fprofile-use=${_pgo_profile_path} -fprofile-correction"
+    msg2 "Kernel build in **PGO USE** mode"
+    LLVM_FLAGS+=" -fprofile-use=${_pgo_profile_path} -fprofile-correction"
   fi
 
   # --- AutoFDO / AutoFDR ---
   if [[ "$_auto_afdo" == "true" ]]; then
-      msg2 "Enabling **AutoFDO / AutoFDR**"
-      LLVM_FLAGS+=" -fauto-profile=${_auto_fdo_profile}"
+    msg2 "Enabling **AutoFDO / AutoFDR**"
+    LLVM_FLAGS+=" -fauto-profile=${_auto_fdo_profile}"
   fi
 
   # --- Propeller: instrumentation ---
   if [[ "$_propeller_generate" == "true" ]]; then
-      msg2 "Building with **Propeller instrumentation**"
-      LLVM_FLAGS+=" -Wl,--emit-relocs -Wl,-z,notext"
+    msg2 "Building with **Propeller instrumentation**"
+    LLVM_FLAGS+=" -Wl,--emit-relocs -Wl,-z,notext"
   fi
 
   # --- Propeller: optimized layout ---
   if [[ "$_propeller_use" == "true" ]]; then
-      msg2 "Applying **Propeller optimized layout**"
-      LDFLAGS+=" -Wl,--propeller=${_propeller_profile}"
+    msg2 "Applying **Propeller optimized layout**"
+    LDFLAGS+=" -Wl,--propeller=${_propeller_profile}"
   fi
 
   # Inject flags into build env
@@ -165,7 +164,7 @@ build() {
   # -------------------------
   # schedtool niceness
   # -------------------------
-  if pacman -Qq schedtool &> /dev/null; then
+  if pacman -Qq schedtool &>/dev/null; then
     msg2 "Using schedtool to set scheduling policy for the build."
     local _pid="$$"
     command schedtool -B -n 1 "$_pid" || :
@@ -201,12 +200,12 @@ hackbase() {
   pkgdesc="The $pkgdesc kernel and modules"
   depends=('coreutils' 'kmod' 'initramfs')
   optdepends=('linux-docs: Kernel hackers manual - HTML documentation that comes with the Linux kernel.'
-              'crda: to set the correct wireless channels of your country.'
-              'linux-firmware: Firmware files for Linux'
-              'modprobed-db: Keeps track of EVERY kernel module that has ever been probed. Useful for make localmodconfig.'
-              'nvidia-tkg: NVIDIA drivers for all installed kernels - non-dkms version. From TK-Glitch.'
-              'nvidia-dkms-tkg: NVIDIA drivers for all installed kernels - dkms version. From TK-Glitch.'
-              'update-grub: Simple wrapper around grub-mkconfig.')
+    'crda: to set the correct wireless channels of your country.'
+    'linux-firmware: Firmware files for Linux'
+    'modprobed-db: Keeps track of EVERY kernel module that has ever been probed. Useful for make localmodconfig.'
+    'nvidia-tkg: NVIDIA drivers for all installed kernels - non-dkms version. From TK-Glitch.'
+    'nvidia-dkms-tkg: NVIDIA drivers for all installed kernels - dkms version. From TK-Glitch.'
+    'update-grub: Simple wrapper around grub-mkconfig.')
   if [ -e "${srcdir}/ntsync.rules" ]; then
     provides=("linux=${pkgver}-${_kernelname}" "${pkgbase}" VIRTUALBOX-GUEST-MODULES WIREGUARD-MODULE NTSYNC-MODULE ntsync-header)
   else
@@ -233,14 +232,14 @@ hackbase() {
   [[ "$_STRIP" == "true" ]] && _STRIP_MODS="INSTALL_MOD_STRIP=1"
 
   ZSTD_CLEVEL=19 make INSTALL_MOD_PATH="$pkgdir/usr" $_STRIP_MODS \
-    DEPMOD=/doesnt/exist modules_install  # Suppress depmod
+    DEPMOD=/doesnt/exist modules_install # Suppress depmod
 
   # Remove build and source links
   rm -f "$modulesdir"/{source,build}
 
   # Install cleanup pacman hook and script
   sed -e "s|cleanup|${pkgbase}-cleanup|g" "${srcdir}"/90-cleanup.hook |
-  install -Dm644 /dev/stdin "${pkgdir}/usr/share/libalpm/hooks/90-${pkgbase}.hook"
+    install -Dm644 /dev/stdin "${pkgdir}/usr/share/libalpm/hooks/90-${pkgbase}.hook"
   install -Dm755 "${srcdir}"/cleanup "${pkgdir}/usr/share/libalpm/scripts/${pkgbase}-cleanup"
 
   # Install customization file, for reference
@@ -285,7 +284,7 @@ hackheaders() {
 
   # add resolve_btfids on 6.x
   if [[ $_basever = 6* ]]; then
-    install -Dt "$builddir"/tools/bpf/resolve_btfids tools/bpf/resolve_btfids/resolve_btfids || ( warning "$builddir/tools/bpf/resolve_btfids was not found. This is undesirable and might break dkms modules !!! Please review your config changes and consider using the provided defconfig and tweaks without further modification." && read -rp "Press enter to continue anyway" )
+    install -Dt "$builddir"/tools/bpf/resolve_btfids tools/bpf/resolve_btfids/resolve_btfids || (warning "$builddir/tools/bpf/resolve_btfids was not found. This is undesirable and might break dkms modules !!! Please review your config changes and consider using the provided defconfig and tweaks without further modification." && read -rp "Press enter to continue anyway")
   fi
 
   msg2 "Installing headers..."
@@ -329,25 +328,25 @@ hackheaders() {
   while read -rd '' file; do
     if [[ "$_compiler" =~ llvm ]]; then
       case "$(file -Sib "$file")" in
-        application/x-sharedlib\;*)      # Libraries (.so)
-          llvm-strip --strip-all-gnu $STRIP_SHARED "$file" ;;
-        application/x-archive\;*)        # Libraries (.a)
-          llvm-strip --strip-all-gnu $STRIP_STATIC "$file" ;;
-        application/x-executable\;*)     # Binaries
-          llvm-strip --strip-all-gnu $STRIP_BINARIES "$file" ;;
-        application/x-pie-executable\;*) # Relocatable binaries
-          llvm-strip --strip-all-gnu $STRIP_SHARED "$file" ;;
+      application/x-sharedlib\;*) # Libraries (.so)
+        llvm-strip --strip-all-gnu $STRIP_SHARED "$file" ;;
+      application/x-archive\;*) # Libraries (.a)
+        llvm-strip --strip-all-gnu $STRIP_STATIC "$file" ;;
+      application/x-executable\;*) # Binaries
+        llvm-strip --strip-all-gnu $STRIP_BINARIES "$file" ;;
+      application/x-pie-executable\;*) # Relocatable binaries
+        llvm-strip --strip-all-gnu $STRIP_SHARED "$file" ;;
       esac
     elif [[ "$_compiler" =~ gcc ]]; then
       case "$(file -Sib "$file")" in
-        application/x-sharedlib\;*)      # Libraries (.so)
-          strip --strip-all $STRIP_SHARED "$file" ;;
-        application/x-archive\;*)        # Libraries (.a)
-          strip --strip-all $STRIP_STATIC "$file" ;;
-        application/x-executable\;*)     # Binaries
-          strip --strip-all $STRIP_BINARIES "$file" ;;
-        application/x-pie-executable\;*) # Relocatable binaries
-          strip --strip-all $STRIP_SHARED "$file" ;;
+      application/x-sharedlib\;*) # Libraries (.so)
+        strip --strip-all $STRIP_SHARED "$file" ;;
+      application/x-archive\;*) # Libraries (.a)
+        strip --strip-all $STRIP_STATIC "$file" ;;
+      application/x-executable\;*) # Binaries
+        strip --strip-all $STRIP_BINARIES "$file" ;;
+      application/x-pie-executable\;*) # Relocatable binaries
+        strip --strip-all $STRIP_SHARED "$file" ;;
       esac
     fi
   done < <(find "$builddir" -type f -perm -u+x ! -name vmlinux -print0)
@@ -373,17 +372,17 @@ hackheaders() {
 
 _mkinitcpio() {
   source "$_where"/TKT_CONFIG
-    if [[ "${_ukify}" == "true" ]]; then
-      msg2 "Preparing mkinitcpio preset for ${pkgbase}..."
+  if [[ "${_ukify}" == "true" ]]; then
+    msg2 "Preparing mkinitcpio preset for ${pkgbase}..."
 
-      local preset_file="/etc/mkinitcpio.d/${pkgbase}.preset"
-      sudo mkdir -p "${pkgdir}/etc/mkinitcpio.d"
-      # Backup existing preset
-      if [[ -f "$preset_file" ]]; then
-          sudo cp "$preset_file" "${preset_file}.bak"
-          msg2 "Existing preset backed up to ${preset_file}.bak"
-      fi
-      cat > "$preset_file" <<EOF
+    local preset_file="/etc/mkinitcpio.d/${pkgbase}.preset"
+    sudo mkdir -p "${pkgdir}/etc/mkinitcpio.d"
+    # Backup existing preset
+    if [[ -f "$preset_file" ]]; then
+      sudo cp "$preset_file" "${preset_file}.bak"
+      msg2 "Existing preset backed up to ${preset_file}.bak"
+    fi
+    cat >"$preset_file" <<EOF
 # mkinitcpio preset file for ${pkgbase} (UKI configuration)
 
 ALL_config="/etc/mkinitcpio.conf"
@@ -395,9 +394,9 @@ default_initramfs="/boot/initramfs-${pkgbase}.img"
 default_uki="/efi/${pkgbase}.efi"
 default_options=""
 EOF
-        msg2 "Created UKI-aware mkinitcpio preset at ${preset_file}"
-    else
-        cat > "$preset_file" <<EOF
+    msg2 "Created UKI-aware mkinitcpio preset at ${preset_file}"
+  else
+    cat >"$preset_file" <<EOF
 # mkinitcpio preset file for ${pkgbase}
 
 ALL_config="/etc/mkinitcpio.conf"
@@ -408,8 +407,8 @@ default_image="/boot/vmlinuz-${pkgbase}"
 default_initramfs="/boot/initramfs-${pkgbase}.img"
 default_options=""
 EOF
-        msg2 "Created standard mkinitcpio preset at ${preset_file}"
-    fi
+    msg2 "Created standard mkinitcpio preset at ${preset_file}"
+  fi
 }
 
 source /dev/stdin <<EOF
