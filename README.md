@@ -1,6 +1,8 @@
 # DO NOT IGNORE! YOU MUST READ THIS BEFORE YOU EVEN CLONE THE REPO IN ORDER TO USE IT!
 ### Most questions you can ask will be answered in this file.
 
+### This entire repository is protected under the "Fuck Donald Trump" license, meaning all Republicans, Conservatives, and MAGAtards are not allowed to use TKT software.
+
 ## TꓘT (The Kernel Toolkit) - A linux-tkg fork
 
 #### Tested distro's so far;
