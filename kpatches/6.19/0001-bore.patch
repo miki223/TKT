@@ -1,8 +1,9 @@
-From db2cf20dbb544f3469513a826a6ffb73b11d3a15 Mon Sep 17 00:00:00 2001
-From: Masahito S <firelzrd@gmail.com>
-Date: Sat, 14 Mar 2026 01:01:39 +0900
-Subject: [PATCH] linux6.19.7-bore-6.6.2
+From a7b76dbfa5c23f4d65636098280d88442c78683c Mon Sep 17 00:00:00 2001
+From: Piotr Gorski <lucjan.lucjanov@gmail.com>
+Date: Fri, 13 Mar 2026 20:17:09 +0100
+Subject: [PATCH] bore
 
+Signed-off-by: Piotr Gorski <lucjan.lucjanov@gmail.com>
 ---
  include/linux/sched.h      |  34 +++
  include/linux/sched/bore.h |  41 ++++
@@ -22,7 +23,7 @@ Subject: [PATCH] linux6.19.7-bore-6.6.2
  create mode 100644 kernel/sched/bore.c
 
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index eb1c4c347a..72fdec0680 100644
+index eb1c4c347..72fdec068 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -817,6 +817,37 @@ struct kmap_ctrl {
@@ -75,7 +76,7 @@ index eb1c4c347a..72fdec0680 100644
  #ifdef CONFIG_SCHED_CORE
 diff --git a/include/linux/sched/bore.h b/include/linux/sched/bore.h
 new file mode 100644
-index 0000000000..fbb73a64d0
+index 000000000..fbb73a64d
 --- /dev/null
 +++ b/include/linux/sched/bore.h
 @@ -0,0 +1,41 @@
@@ -121,7 +122,7 @@ index 0000000000..fbb73a64d0
 +
 +#endif /* _KERNEL_SCHED_BORE_H */
 diff --git a/init/Kconfig b/init/Kconfig
-index fa79feb8fe..a8c9d40468 100644
+index fa79feb8f..a8c9d4046 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
 @@ -1430,6 +1430,23 @@ config CHECKPOINT_RESTORE
@@ -149,7 +150,7 @@ index fa79feb8fe..a8c9d40468 100644
  	bool "Automatic process group scheduling"
  	select CGROUPS
 diff --git a/kernel/Kconfig.hz b/kernel/Kconfig.hz
-index ce1435cb08..9eee2005e2 100644
+index ce1435cb0..9eee2005e 100644
 --- a/kernel/Kconfig.hz
 +++ b/kernel/Kconfig.hz
 @@ -57,3 +57,20 @@ config HZ
@@ -174,7 +175,7 @@ index ce1435cb08..9eee2005e2 100644
 +	 an unnecessarily large base slice, resulting in high scheduling
 +	 latency and poor system responsiveness.
 diff --git a/kernel/exit.c b/kernel/exit.c
-index 8a87021211..292ed28203 100644
+index 8a8702121..292ed2820 100644
 --- a/kernel/exit.c
 +++ b/kernel/exit.c
 @@ -147,7 +147,11 @@ static void __unhash_process(struct release_task_post *post, struct task_struct
@@ -190,7 +191,7 @@ index 8a87021211..292ed28203 100644
  	}
  	list_del_rcu(&p->thread_node);
 diff --git a/kernel/fork.c b/kernel/fork.c
-index b1f3915d5f..3699720c67 100644
+index b1f3915d5..3699720c6 100644
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
 @@ -116,6 +116,10 @@
@@ -229,7 +230,7 @@ index b1f3915d5f..3699720c67 100644
  			attach_pid(p, PIDTYPE_TGID);
  			attach_pid(p, PIDTYPE_PGID);
 diff --git a/kernel/futex/waitwake.c b/kernel/futex/waitwake.c
-index 1c2dd03f11..de57e2d543 100644
+index 1c2dd03f1..de57e2d54 100644
 --- a/kernel/futex/waitwake.c
 +++ b/kernel/futex/waitwake.c
 @@ -4,6 +4,9 @@
@@ -259,7 +260,7 @@ index 1c2dd03f11..de57e2d543 100644
  	__set_current_state(TASK_RUNNING);
  }
 diff --git a/kernel/sched/Makefile b/kernel/sched/Makefile
-index 8ae86371dd..b688084bce 100644
+index 8ae86371d..b688084bc 100644
 --- a/kernel/sched/Makefile
 +++ b/kernel/sched/Makefile
 @@ -37,3 +37,4 @@ obj-y += core.o
@@ -269,7 +270,7 @@ index 8ae86371dd..b688084bce 100644
 +obj-$(CONFIG_SCHED_BORE) += bore.o
 diff --git a/kernel/sched/bore.c b/kernel/sched/bore.c
 new file mode 100644
-index 0000000000..759eee843c
+index 000000000..759eee843
 --- /dev/null
 +++ b/kernel/sched/bore.c
 @@ -0,0 +1,428 @@
@@ -702,7 +703,7 @@ index 0000000000..759eee843c
 +#endif // CONFIG_SYSCTL
 +#endif /* CONFIG_SCHED_BORE */
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index dbf4e32a06..282a43cc26 100644
+index dbf4e32a0..282a43cc2 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -100,6 +100,10 @@
@@ -740,7 +741,7 @@ index dbf4e32a06..282a43cc26 100644
  
  #ifdef CONFIG_FAIR_GROUP_SCHED
 diff --git a/kernel/sched/debug.c b/kernel/sched/debug.c
-index 93f009e107..ed90b4f942 100644
+index 93f009e10..ed90b4f94 100644
 --- a/kernel/sched/debug.c
 +++ b/kernel/sched/debug.c
 @@ -169,6 +169,53 @@ static const struct file_operations sched_feat_fops = {
@@ -846,7 +847,7 @@ index 93f009e107..ed90b4f942 100644
  	P(se.avg.runnable_sum);
  	P(se.avg.util_sum);
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index a8e766eaca..4cc6ce9e8e 100644
+index a8e766eac..4cc6ce9e8 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
 @@ -58,6 +58,10 @@
@@ -1144,7 +1145,7 @@ index a8e766eaca..4cc6ce9e8e 100644
  	set_task_max_allowed_capacity(p);
  
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index d3485d48be..04fc58b41c 100644
+index d3485d48b..04fc58b41 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
 @@ -2168,7 +2168,11 @@ extern int group_balance_cpu(struct sched_group *sg);
@@ -1173,5 +1174,5 @@ index d3485d48be..04fc58b41c 100644
  extern int sysctl_resched_latency_warn_ms;
  extern int sysctl_resched_latency_warn_once;
 -- 
-2.34.1
+2.53.0
 
