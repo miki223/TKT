@@ -190,7 +190,12 @@ build() {
   # -------------------------
   msg2 "Starting kernel compile..."
   {
-    time (env ${compiler_opt} make "${_make_jobs_arg}" ${diet_args} ${diet_target})
+    if [[ "$ETJAKEOC" == "1" ]]; then
+	# Override compiler jobs for 3900XT - ETJAKEOC
+	time (taskset -c 0-19 env ${compiler_opt} make -j20 -l20)
+    else
+	time (env ${compiler_opt} make "${_make_jobs_arg}" ${diet_args} ${diet_target})
+    fi
   } 3>&1 1>&2 2>&3
 }
 
