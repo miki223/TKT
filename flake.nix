@@ -23,24 +23,27 @@
     tktPackages  =
         with pkgs;
         mkTKTForKernels [
-          linux_6_1
-          linux_6_12
-          linux_6_6
           linux_6_18
           linux_6_19
           linux_7_0
         ];
 
             kernels  = pkgs.lib.filterAttrs (name: value:  pkgs.lib.strings.match "linux_.*" name != null ) tktPackages;
-            linuxPackages = pkgs.lib.filterAttrs (name: value:  pkgs.lib.strings.match "linuxPackages.*" name != null ) tktPackages;
+            kpkgs = pkgs.lib.filterAttrs (name: value:  pkgs.lib.strings.match "linuxPackages.*" name != null ) tktPackages ;
 
         in
     {
 
     packages.x86_64-linux =  kernels // {
     linux_latest-tkt = kernels.linux_7_0-tkt;
+    linux_latest-tkt_clang = kernels.linux_7_0-tkt_clang;
+
+    } // kpkgs // {
+    linuxPackages_latest-tkt = kpkgs.linuxPackages_7_0-tkt;
+    linuxPackages_latest-tkt_clang = kpkgs.linuxPackages_7_0-tkt_clang;
+
     };
-    inherit linuxPackages;
+
     };
 
 }
