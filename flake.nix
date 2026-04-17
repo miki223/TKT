@@ -28,6 +28,7 @@
           linux_6_6
           linux_6_18
           linux_6_19
+          linux_7_0
         ];
 
             kernels  = pkgs.lib.filterAttrs (name: value:  pkgs.lib.strings.match "linux_.*" name != null ) tktPackages;
@@ -36,7 +37,9 @@
         in
     {
 
-    packages.x86_64-linux =  kernels;
+    packages.x86_64-linux =  kernels // {
+    linux_latest-tkt = kernels.linux_7_0-tkt;
+    };
     inherit linuxPackages;
     };
 
