@@ -24,7 +24,6 @@
         with pkgs;
         mkTKTForKernels [
           linux_6_18
-          linux_6_19
           linux_7_0
         ];
 
